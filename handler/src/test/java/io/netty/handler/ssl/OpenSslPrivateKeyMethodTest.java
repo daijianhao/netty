@@ -19,6 +19,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.Unpooled;
+import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -34,8 +35,8 @@ import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.concurrent.Promise;
+import org.hamcrest.Matchers;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -46,10 +47,11 @@ import org.junit.runners.Parameterized.Parameters;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLHandshakeException;
 import java.net.SocketAddress;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.Signature;
+import java.security.SignatureException;
 import java.security.cert.X509Certificate;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PSSParameterSpec;
@@ -65,13 +67,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(Parameterized.class)
 public class OpenSslPrivateKeyMethodTest {
-
+    private static final String RFC_CIPHER_NAME = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
     private static EventLoopGroup GROUP;
     private static SelfSignedCertificate CERT;
+    private static ExecutorService EXECUTOR;
 
     @Parameters(name = "{index}: delegate = {0}, keyless = {1}")
     public static Collection<Object[]> parameters() {
@@ -85,39 +92,51 @@ public class OpenSslPrivateKeyMethodTest {
 
     @BeforeClass
     public static void init() throws Exception {
+        Assume.assumeTrue(OpenSsl.isBoringSSL());
+        // Check if the cipher is supported at all which may not be the case for various JDK versions and OpenSSL API
+        // implementations.
+        assumeCipherAvailable(SslProvider.OPENSSL);
+        assumeCipherAvailable(SslProvider.JDK);
+
         GROUP = new DefaultEventLoopGroup();
         CERT = new SelfSignedCertificate();
+        EXECUTOR = Executors.newCachedThreadPool(new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable r) {
+                return new DelegateThread(r);
+            }
+        });
     }
 
     @AfterClass
     public static void destroy() {
         GROUP.shutdownGracefully();
         CERT.delete();
+        EXECUTOR.shutdown();
     }
 
-    private final String rfcCipherName = "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256";
-    private final boolean delegate;
     private final boolean keyless;
+    private final boolean delegate;
 
     public OpenSslPrivateKeyMethodTest(boolean delegate, boolean keyless) {
         this.delegate = delegate;
         this.keyless = keyless;
     }
 
-    private void assumeCipherAvailable(SslProvider provider) throws NoSuchAlgorithmException {
+    private static void assumeCipherAvailable(SslProvider provider) throws NoSuchAlgorithmException {
         boolean cipherSupported = false;
         if (provider == SslProvider.JDK) {
             SSLEngine engine = SSLContext.getDefault().createSSLEngine();
             for (String c: engine.getSupportedCipherSuites()) {
-               if (rfcCipherName.equals(c)) {
+               if (RFC_CIPHER_NAME.equals(c)) {
                    cipherSupported = true;
                    break;
                }
             }
         } else {
-            cipherSupported = OpenSsl.isCipherSuiteAvailable(rfcCipherName);
+            cipherSupported = OpenSsl.isCipherSuiteAvailable(RFC_CIPHER_NAME);
         }
-        Assume.assumeTrue("Unsupported cipher: " + rfcCipherName, cipherSupported);
+        Assume.assumeTrue("Unsupported cipher: " + RFC_CIPHER_NAME, cipherSupported);
     }
 
     private static SslHandler newSslHandler(SslContext sslCtx, ByteBufAllocator allocator, Executor executor) {
@@ -128,23 +147,12 @@ public class OpenSslPrivateKeyMethodTest {
         }
     }
 
-    @Test
-    public void testPrivateKeyMethod() throws Exception {
-        Assume.assumeTrue(OpenSsl.isBoringSSL());
-        // Check if the cipher is supported at all which may not be the case for various JDK versions and OpenSSL API
-        // implementations.
-        assumeCipherAvailable(SslProvider.OPENSSL);
-        assumeCipherAvailable(SslProvider.JDK);
+    private SslContext buildServerContext(OpenSslPrivateKeyMethod method) throws Exception {
+        List<String> ciphers = Collections.singletonList(RFC_CIPHER_NAME);
 
-        final AtomicBoolean signCalled = new AtomicBoolean();
-        List<String> ciphers = Collections.singletonList(rfcCipherName);
+        final KeyManagerFactory kmf = keyless ? OpenSslX509KeyManagerFactory.newKeyless(CERT.cert()) :
+                SslContext.buildKeyManagerFactory(new X509Certificate[] { CERT.cert() }, CERT.key(), null, null);
 
-        final KeyManagerFactory kmf;
-        if (keyless) {
-            kmf = OpenSslX509KeyManagerFactory.newKeyless(CERT.cert());
-        } else {
-            kmf = SslContext.buildKeyManagerFactory(new X509Certificate[] { CERT.cert() }, CERT.key(), null, null);
-        }
         final SslContext sslServerContext = SslContextBuilder.forServer(kmf)
                 .sslProvider(SslProvider.OPENSSL)
                 .ciphers(ciphers)
@@ -152,21 +160,46 @@ public class OpenSslPrivateKeyMethodTest {
                 .protocols(SslUtils.PROTOCOL_TLS_V1_2)
                 .build();
 
-        ((OpenSslContext) sslServerContext).setPrivateKeyMethod(new OpenSslPrivateKeyMethod() {
+        ((OpenSslContext) sslServerContext).setPrivateKeyMethod(method);
+        return sslServerContext;
+    }
+
+    private SslContext buildClientContext()  throws Exception {
+        return SslContextBuilder.forClient()
+                .sslProvider(SslProvider.JDK)
+                .ciphers(Collections.singletonList(RFC_CIPHER_NAME))
+                // As this is not a TLSv1.3 cipher we should ensure we talk something else.
+                .protocols(SslUtils.PROTOCOL_TLS_V1_2)
+                .trustManager(InsecureTrustManagerFactory.INSTANCE)
+                .build();
+    }
+
+    private Executor delegateExecutor() {
+       return delegate ? EXECUTOR : null;
+    }
+
+    private void assertThread() {
+        if (delegate && OpenSslContext.USE_TASKS) {
+            assertEquals(DelegateThread.class, Thread.currentThread().getClass());
+        } else {
+            assertNotEquals(DelegateThread.class, Thread.currentThread().getClass());
+        }
+    }
+
+    @Test
+    public void testPrivateKeyMethod() throws Exception {
+        final AtomicBoolean signCalled = new AtomicBoolean();
+        final SslContext sslServerContext = buildServerContext(new OpenSslPrivateKeyMethod() {
             @Override
             public byte[] sign(SSLEngine engine, int signatureAlgorithm, byte[] input, byte[] key) throws Exception {
                 signCalled.set(true);
-                if (delegate && OpenSslContext.USE_TASKS) {
-                    Assert.assertEquals(DelegateThread.class, Thread.currentThread().getClass());
-                } else {
-                    Assert.assertNotEquals(DelegateThread.class, Thread.currentThread().getClass());
-                }
-                final PrivateKey privateKey = CERT.key();
+                assertThread();
+
                 if (keyless) {
                     // If keyless the key should be null.
-                    Assert.assertNull(key);
+                    assertNull(key);
                 } else {
-                    Assert.assertNotNull(key);
+                    assertNotNull(key);
                 }
                 assertEquals(CERT.cert().getPublicKey(),
                         engine.getSession().getLocalCertificates()[0].getPublicKey());
@@ -183,7 +216,7 @@ public class OpenSslPrivateKeyMethodTest {
                 } else {
                     throw new AssertionError("Unexpected signature algorithm " + signatureAlgorithm);
                 }
-                signature.initSign(privateKey);
+                signature.initSign(CERT.key());
                 signature.update(input);
                 return signature.sign();
             }
@@ -194,22 +227,8 @@ public class OpenSslPrivateKeyMethodTest {
             }
         });
 
-        final ExecutorService executorService = delegate ? Executors.newCachedThreadPool(new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-                return new DelegateThread(r);
-            }
-        }) : null;
-
+        final SslContext sslClientContext = buildClientContext();
         try {
-            final SslContext sslClientContext = SslContextBuilder.forClient()
-                    .sslProvider(SslProvider.JDK)
-                    .ciphers(ciphers)
-                    // As this is not a TLSv1.3 cipher we should ensure we talk something else.
-                    .protocols(SslUtils.PROTOCOL_TLS_V1_2)
-                    .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                    .build();
-
             try {
                 final Promise<Object> serverPromise = GROUP.next().newPromise();
                 final Promise<Object> clientPromise = GROUP.next().newPromise();
@@ -218,7 +237,7 @@ public class OpenSslPrivateKeyMethodTest {
                     @Override
                     protected void initChannel(Channel ch) {
                         ChannelPipeline pipeline = ch.pipeline();
-                        pipeline.addLast(newSslHandler(sslServerContext, ch.alloc(), executorService));
+                        pipeline.addLast(newSslHandler(sslServerContext, ch.alloc(), delegateExecutor()));
 
                         pipeline.addLast(new SimpleChannelInboundHandler<Object>() {
                             @Override
@@ -246,7 +265,7 @@ public class OpenSslPrivateKeyMethodTest {
                 };
 
                 LocalAddress address = new LocalAddress("test-" + SslProvider.OPENSSL
-                        + '-' + SslProvider.JDK + '-' + rfcCipherName + '-' + delegate + '-' + keyless);
+                        + '-' + SslProvider.JDK + '-' + RFC_CIPHER_NAME + '-' + delegate + '-' + keyless);
 
                 Channel server = server(address, serverHandler);
                 try {
@@ -254,7 +273,7 @@ public class OpenSslPrivateKeyMethodTest {
                         @Override
                         protected void initChannel(Channel ch) {
                             ChannelPipeline pipeline = ch.pipeline();
-                            pipeline.addLast(newSslHandler(sslClientContext, ch.alloc(), executorService));
+                            pipeline.addLast(newSslHandler(sslClientContext, ch.alloc(), delegateExecutor()));
 
                             pipeline.addLast(new SimpleChannelInboundHandler<Object>() {
                                 @Override
@@ -301,10 +320,54 @@ public class OpenSslPrivateKeyMethodTest {
             }
         } finally {
             ReferenceCountUtil.release(sslServerContext);
+        }
+    }
 
-            if (executorService != null) {
-                executorService.shutdown();
+    @Test
+    public void testPrivateKeyMethodFails() throws Exception {
+        final SslContext sslServerContext = buildServerContext(new OpenSslPrivateKeyMethod() {
+            @Override
+            public byte[] sign(SSLEngine engine, int signatureAlgorithm, byte[] input, byte[] key) throws Exception {
+                assertThread();
+                throw new SignatureException();
             }
+
+            @Override
+            public byte[] decrypt(SSLEngine engine, byte[] input, byte[] key) {
+                throw new UnsupportedOperationException();
+            }
+        });
+        final SslContext sslClientContext = buildClientContext();
+
+        SslHandler serverSslHandler = newSslHandler(
+                sslServerContext, UnpooledByteBufAllocator.DEFAULT, delegateExecutor());
+        SslHandler clientSslHandler = newSslHandler(
+                sslClientContext, UnpooledByteBufAllocator.DEFAULT, delegateExecutor());
+
+        try {
+            try {
+                LocalAddress address = new LocalAddress("test-" + SslProvider.OPENSSL
+                        + '-' + SslProvider.JDK + '-' + RFC_CIPHER_NAME + '-' + delegate + '-' + keyless);
+
+                Channel server = server(address, serverSslHandler);
+                try {
+                    Channel client = client(server, clientSslHandler);
+                    try {
+                        Throwable clientCause = clientSslHandler.handshakeFuture().await().cause();
+                        Throwable serverCause = serverSslHandler.handshakeFuture().await().cause();
+                        assertNotNull(clientCause);
+                        assertThat(serverCause, Matchers.instanceOf(SSLHandshakeException.class));
+                    } finally {
+                        client.close().sync();
+                    }
+                } finally {
+                    server.close().sync();
+                }
+            } finally {
+                ReferenceCountUtil.release(sslClientContext);
+            }
+        } finally {
+            ReferenceCountUtil.release(sslServerContext);
         }
     }
 

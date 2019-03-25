@@ -227,7 +227,7 @@ public class ReferenceCountedOpenSslEngine extends SSLEngine implements Referenc
 
     // This is package-private as we set it from OpenSslContext if an exception is thrown during
     // the verification step.
-    SSLHandshakeException handshakeException;
+    Throwable handshakeException;
 
     /**
      * Create a new instance.
@@ -975,7 +975,12 @@ public class ReferenceCountedOpenSslEngine extends SSLEngine implements Referenc
         if (handshakeState == HandshakeState.FINISHED) {
             return new SSLException(errorString);
         }
-        return new SSLHandshakeException(errorString);
+        SSLHandshakeException exception = new SSLHandshakeException(errorString);
+        if (handshakeException != null) {
+            exception.initCause(handshakeException);
+            handshakeException = null;
+        }
+        return exception;
     }
 
     public final SSLEngineResult unwrap(
@@ -1692,11 +1697,24 @@ public class ReferenceCountedOpenSslEngine extends SSLEngine implements Referenc
             return NEED_WRAP;
         }
 
-        SSLHandshakeException exception = handshakeException;
+        Throwable exception = handshakeException;
         assert exception != null;
         handshakeException = null;
         shutdown();
-        throw exception;
+        if (exception instanceof SSLHandshakeException) {
+            throw (SSLHandshakeException) exception;
+        } else {
+            SSLHandshakeException e = new SSLHandshakeException("General OpenSslEngine problem");
+            e.initCause(exception);
+            throw e;
+        }
+    }
+
+    // Should be called if the handshake will be failed due a callback that throws an exception.
+    // This cause will then be used to give more details as part of the SSLHandshakeException.
+    final void initHandshakeException(Throwable cause) {
+        assert handshakeException == null;
+        handshakeException = cause;
     }
 
     private SSLEngineResult.HandshakeStatus handshake() throws SSLException {

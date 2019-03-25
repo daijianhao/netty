@@ -40,25 +40,25 @@ public interface OpenSslPrivateKeyMethod {
     int SSL_SIGN_RSA_PKCS1_MD5_SHA1 = SSLPrivateKeyMethod.SSL_SIGN_RSA_PKCS1_MD5_SHA1;
 
     /**
-     * Sign the input with given key and return the signed bytes.
+     * Signs the input with the given key and returns the signed bytes.
      *
      * @param engine                the {@link SSLEngine}
      * @param signatureAlgorithm    the algorithm to use for signing
      * @param input                 the digest itself
-     * @param key                   the key if configured, or {@code null} if the key needs to be obtained externally.
+     * @param key                   the key if configured, or {@code null} if the key needs to be obtained externally
      * @return                      the signed data
-     * @throws Exception
+     * @throws Exception            thrown if an error is encountered during the signing
      */
-    byte[] sign(SSLEngine engine, int signatureAlgorithm, byte[] input, byte[] key)
-            throws Exception;
+    byte[] sign(SSLEngine engine, int signatureAlgorithm, byte[] input, byte[] key) throws Exception;
+
     /**
-     * Decrypt the input with the given key and return the decrypted bytes.
+     * Decrypts the input with the given key and returns the decrypted bytes.
      *
      * @param engine                the {@link SSLEngine}
      * @param input                 the input which should be decrypted
-     * @param key                   the key if configured, or {@code null} if the key needs to be obtained externally.
+     * @param key                   the key if configured, or {@code null} if the key needs to be obtained externally
      * @return                      the decrypted data
-     * @throws Exception
+     * @throws Exception            thrown if an error is encountered during the decrypting
      */
     byte[] decrypt(SSLEngine engine, byte[] input, byte[] key) throws Exception;
 }

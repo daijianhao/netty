@@ -278,7 +278,7 @@ public final class OpenSslX509KeyManagerFactory extends KeyManagerFactory {
     }
 
     /**
-     * Create a new initialized {@link OpenSslX509KeyManagerFactory} which will provide its private key by using the
+     * Returns a new initialized {@link OpenSslX509KeyManagerFactory} which will provide its private key by using the
      * {@link OpenSslPrivateKeyMethod}.
      */
     public static OpenSslX509KeyManagerFactory newKeyless(X509Certificate... certificateChain)

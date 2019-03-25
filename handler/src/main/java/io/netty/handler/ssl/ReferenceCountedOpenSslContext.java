@@ -520,8 +520,16 @@ public abstract class ReferenceCountedOpenSslContext extends SslContext implemen
         }
     }
 
+    /**
+     * Set the {@link OpenSslPrivateKeyMethod} to use. This allows to offload private-key operations
+     * if needed.
+     *
+     * This method is currently only supported when {@code BoringSSL} is used.
+     *
+     * @param method method to use.
+     */
     @UnstableApi
-    public void setPrivateKeyMethod(OpenSslPrivateKeyMethod method) {
+    public final void setPrivateKeyMethod(OpenSslPrivateKeyMethod method) {
         ObjectUtil.checkNotNull(method, "method");
         Lock writerLock = ctxLock.writeLock();
         writerLock.lock();
@@ -686,10 +694,7 @@ public abstract class ReferenceCountedOpenSslContext extends SslContext implemen
                 return CertificateVerifier.X509_V_OK;
             } catch (Throwable cause) {
                 logger.debug("verification of certificate failed", cause);
-                SSLHandshakeException e = new SSLHandshakeException("General OpenSslEngine problem");
-                e.initCause(cause);
-                assert engine.handshakeException == null;
-                engine.handshakeException = e;
+                engine.initHandshakeException(cause);
 
                 // Try to extract the correct error code that should be used.
                 if (cause instanceof OpenSslCertificateException) {
@@ -913,20 +918,32 @@ public abstract class ReferenceCountedOpenSslContext extends SslContext implemen
         private ReferenceCountedOpenSslEngine retrieveEngine(long ssl) throws SSLException {
             ReferenceCountedOpenSslEngine engine = engineMap.get(ssl);
             if (engine == null) {
-                throw new SSLException("Could not find Engine");
+                throw new SSLException("Could not find a " +
+                        StringUtil.simpleClassName(ReferenceCountedOpenSslEngine.class) + " for sslPointer " + ssl);
             }
             return engine;
         }
 
         @Override
-        public byte[] sign(long ssl, int signatureAlgorithm, byte[] digest, byte[] ecKey)
-                throws Exception {
-            return keyMethod.sign(retrieveEngine(ssl), signatureAlgorithm, digest, ecKey);
+        public byte[] sign(long ssl, int signatureAlgorithm, byte[] digest, byte[] ecKey) throws Exception {
+            ReferenceCountedOpenSslEngine engine = retrieveEngine(ssl);
+            try {
+                return keyMethod.sign(engine, signatureAlgorithm, digest, ecKey);
+            } catch (Exception e) {
+                engine.initHandshakeException(e);
+                throw e;
+            }
         }
 
         @Override
         public byte[] decrypt(long ssl, byte[] input, byte[] rsaKey) throws Exception {
-            return keyMethod.decrypt(retrieveEngine(ssl), input, rsaKey);
+            ReferenceCountedOpenSslEngine engine = retrieveEngine(ssl);
+            try {
+                return keyMethod.decrypt(engine, input, rsaKey);
+            } catch (Exception e) {
+                engine.initHandshakeException(e);
+                throw e;
+            }
         }
     }
 }

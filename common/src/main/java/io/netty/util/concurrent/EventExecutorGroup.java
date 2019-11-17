@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
  * The {@link EventExecutorGroup} is responsible for providing the {@link EventExecutor}'s to use
  * via its {@link #next()} method. Besides this, it is also responsible for handling their
  * life-cycle and allows shutting them down in a global fashion.
- *
  */
 public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<EventExecutor> {
 
@@ -53,7 +52,6 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
      * @param timeout     the maximum amount of time to wait until the executor is {@linkplain #shutdown()}
      *                    regardless if a task was submitted during the quiet period
      * @param unit        the unit of {@code quietPeriod} and {@code timeout}
-     *
      * @return the {@link #terminationFuture()}
      */
     Future<?> shutdownGracefully(long quietPeriod, long timeout, TimeUnit unit);
@@ -80,9 +78,13 @@ public interface EventExecutorGroup extends ScheduledExecutorService, Iterable<E
 
     /**
      * Returns one of the {@link EventExecutor}s managed by this {@link EventExecutorGroup}.
+     * <p>
+     * EventExecutorGroup 自身不执行任务，而是将任务 #submit(...) 或 #schedule(...) 给自己管理的 EventExecutor 的分组。
+     * 至于提交给哪一个 EventExecutor ，一般是通过 #next() 方法，选择一个 EventExecutor 。
      */
     EventExecutor next();
 
+    // ========== 实现自 ScheduledExecutorService 接口 ==========
     @Override
     Iterator<EventExecutor> iterator();
 

@@ -32,10 +32,14 @@ public final class RejectedExecutionHandlers {
         }
     };
 
-    private RejectedExecutionHandlers() { }
+    private RejectedExecutionHandlers() {
+    }
 
     /**
      * Returns a {@link RejectedExecutionHandler} that will always just throw a {@link RejectedExecutionException}.
+     * <p>
+     * 通过 #reject() 方法，返回 REJECT 实现类的对象。该实现在拒绝时，直接抛出 RejectedExecutionException 异常。
+     * 默认情况下，使用这种实现。
      */
     public static RejectedExecutionHandler reject() {
         return REJECT;
@@ -52,12 +56,15 @@ public final class RejectedExecutionHandlers {
         return new RejectedExecutionHandler() {
             @Override
             public void rejected(Runnable task, SingleThreadEventExecutor executor) {
-                if (!executor.inEventLoop()) {
+                if (!executor.inEventLoop()) {// 非 EventLoop 线程中。如果在 EventLoop 线程中，就无法执行任务，这就导致完全无法重试了
+                    // 循环多次尝试添加到队列中
                     for (int i = 0; i < retries; i++) {
                         // Try to wake up the executor so it will empty its task queue.
+                        // 唤醒执行器，进行任务执行。这样，就可能执行掉部分任务。
                         executor.wakeup(false);
-
+                        // 阻塞等待
                         LockSupport.parkNanos(backOffNanos);
+                        // 添加任务
                         if (executor.offerTask(task)) {
                             return;
                         }
@@ -65,6 +72,7 @@ public final class RejectedExecutionHandlers {
                 }
                 // Either we tried to add the task from within the EventLoop or we was not able to add it even with
                 // backoff.
+                // 多次尝试添加失败，抛出 RejectedExecutionException 异常
                 throw new RejectedExecutionException();
             }
         };

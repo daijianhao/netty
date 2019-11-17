@@ -32,6 +32,7 @@ import java.util.concurrent.ThreadFactory;
 
 /**
  * {@link MultithreadEventLoopGroup} implementations which is used for NIO {@link Selector} based {@link Channel}s.
+ * 继承 MultithreadEventLoopGroup 抽象类，NioEventLoop 的分组实现类
  */
 public class NioEventLoopGroup extends MultithreadEventLoopGroup {
 
@@ -73,7 +74,7 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
     }
 
     public NioEventLoopGroup(int nThreads, ThreadFactory threadFactory,
-        final SelectorProvider selectorProvider, final SelectStrategyFactory selectStrategyFactory) {
+                             final SelectorProvider selectorProvider, final SelectStrategyFactory selectStrategyFactory) {
         super(nThreads, threadFactory, selectorProvider, selectStrategyFactory, RejectedExecutionHandlers.reject());
     }
 
@@ -104,9 +105,11 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
     /**
      * Sets the percentage of the desired amount of time spent for I/O in the child event loops.  The default value is
      * {@code 50}, which means the event loop will try to spend the same amount of time for I/O as for non-I/O tasks.
+     * <p>
+     * 设置所有 EventLoop 的 IO 任务占用执行时间的比例
      */
     public void setIoRatio(int ioRatio) {
-        for (EventExecutor e: this) {
+        for (EventExecutor e : this) {
             ((NioEventLoop) e).setIoRatio(ioRatio);
         }
     }
@@ -114,16 +117,23 @@ public class NioEventLoopGroup extends MultithreadEventLoopGroup {
     /**
      * Replaces the current {@link Selector}s of the child event loops with newly created {@link Selector}s to work
      * around the  infamous epoll 100% CPU bug.
+     * <p>
+     * 重建所有 EventLoop 的 Selector 对象,因为 JDK 有 epoll 100% CPU Bug 。实际上，NioEventLoop 当触发该 Bug 时，也会自动调用 NioEventLoop#rebuildSelector() 方法，进行重建 Selector 对象，以修复该问题。
      */
     public void rebuildSelectors() {
-        for (EventExecutor e: this) {
+        //因为自身实现了iterator
+        for (EventExecutor e : this) {
             ((NioEventLoop) e).rebuildSelector();
         }
     }
 
+    /**
+     * 创建 NioEventLoop 对象
+     * 通过 Object... args 方法参数，传入给 NioEventLoop 创建需要的参数
+     */
     @Override
     protected EventLoop newChild(Executor executor, Object... args) throws Exception {
         return new NioEventLoop(this, executor, (SelectorProvider) args[0],
-            ((SelectStrategyFactory) args[1]).newSelectStrategy(), (RejectedExecutionHandler) args[2]);
+                ((SelectStrategyFactory) args[1]).newSelectStrategy(), (RejectedExecutionHandler) args[2]);
     }
 }

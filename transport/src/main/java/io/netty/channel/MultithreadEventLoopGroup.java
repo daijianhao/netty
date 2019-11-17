@@ -29,6 +29,8 @@ import java.util.concurrent.ThreadFactory;
 /**
  * Abstract base class for {@link EventLoopGroup} implementations that handles their tasks with multiple threads at
  * the same time.
+ * <p>
+ * 实现 EventLoopGroup 接口，继承 MultithreadEventExecutorGroup 抽象类，基于多线程的 EventLoop 的分组抽象类。
  */
 public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutorGroup implements EventLoopGroup {
 
@@ -37,6 +39,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     private static final int DEFAULT_EVENT_LOOP_THREADS;
 
     static {
+        //，EventLoopGroup 默认拥有的 EventLoop 数量。因为一个 EventLoop 对应一个线程，所以为 CPU 数量 * 2
         DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt(
                 "io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));
 
@@ -64,7 +67,7 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
      * EventExecutorChooserFactory, Object...)
      */
     protected MultithreadEventLoopGroup(int nThreads, Executor executor, EventExecutorChooserFactory chooserFactory,
-                                     Object... args) {
+                                        Object... args) {
         super(nThreads == 0 ? DEFAULT_EVENT_LOOP_THREADS : nThreads, executor, chooserFactory, args);
     }
 
@@ -75,12 +78,17 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
 
     @Override
     public EventLoop next() {
+        //选择下一个 EventLoop 对象
         return (EventLoop) super.next();
     }
 
+    /**
+     * 覆盖父类方法，返回值改为 EventLoop 类。
+     */
     @Override
     protected abstract EventLoop newChild(Executor executor, Object... args) throws Exception;
 
+    //-------------------------------自定义的注册方法全部交给next()返回的来实现--------------------------------
     @Override
     public ChannelFuture register(Channel channel) {
         return next().register(channel);

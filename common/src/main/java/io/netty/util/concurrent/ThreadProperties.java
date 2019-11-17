@@ -17,6 +17,8 @@ package io.netty.util.concurrent;
 
 /**
  * Expose details for a {@link Thread}.
+ *
+ * 线程属性接口
  */
 public interface ThreadProperties {
     /**

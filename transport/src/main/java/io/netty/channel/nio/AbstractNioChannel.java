@@ -76,9 +76,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     /**
      * Create a new instance
      *
-     * @param parent            the parent {@link Channel} by which this instance was created. May be {@code null}
-     * @param ch                the underlying {@link SelectableChannel} on which it operates
-     * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
+     * @param parent         the parent {@link Channel} by which this instance was created. May be {@code null}
+     * @param ch             the underlying {@link SelectableChannel} on which it operates
+     * @param readInterestOp the ops to set to receive data from the {@link SelectableChannel}
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         super(parent);
@@ -381,7 +381,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
     @Override
     protected void doRegister() throws Exception {
         boolean selected = false;
-        for (;;) {
+        for (; ; ) {
             try {
                 selectionKey = javaChannel().register(eventLoop().unwrappedSelector(), 0, this);
                 return;
@@ -417,6 +417,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
 
         final int interestOps = selectionKey.interestOps();
         if ((interestOps & readInterestOp) == 0) {
+            //如果当前Channel对所有时间都不感兴趣，则设置为 readInterestOp 对应的感兴趣事件
             selectionKey.interestOps(interestOps | readInterestOp);
         }
     }

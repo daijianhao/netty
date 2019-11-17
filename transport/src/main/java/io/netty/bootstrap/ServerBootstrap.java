@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
- *
  */
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
@@ -50,7 +49,8 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
     private volatile EventLoopGroup childGroup;
     private volatile ChannelHandler childHandler;
 
-    public ServerBootstrap() { }
+    public ServerBootstrap() {
+    }
 
     private ServerBootstrap(ServerBootstrap bootstrap) {
         super(bootstrap);
@@ -146,7 +146,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
         final Map<AttributeKey<?>, Object> attrs = attrs0();
         synchronized (attrs) {
-            for (Entry<AttributeKey<?>, Object> e: attrs.entrySet()) {
+            for (Entry<AttributeKey<?>, Object> e : attrs.entrySet()) {
                 @SuppressWarnings("unchecked")
                 AttributeKey<Object> key = (AttributeKey<Object>) e.getKey();
                 channel.attr(key).set(e.getValue());
@@ -174,10 +174,39 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 if (handler != null) {
                     pipeline.addLast(handler);
                 }
+                //创建 ServerBootstrapAcceptor 对象，添加到 pipeline 中。
+                // 为什么使用 EventLoop 执行添加的过程？如果启动器配置的处理器，
+                // 并且 ServerBootstrapAcceptor 不使用 EventLoop 添加，
+                // 则会导致 ServerBootstrapAcceptor 添加到配置的处理器之前。
 
+                //示例代码如下：
+                /**
+                 * ServerBootstrap b = new ServerBootstrap();
+                 * b.handler(new ChannelInitializer<Channel>() {
+                 *
+                 *     @Override
+                 *     protected void initChannel(Channel ch) {
+                 *         final ChannelPipeline pipeline = ch.pipeline();
+                 *         ch.eventLoop().execute(new Runnable() {
+                 *             @Override
+                 *             public void run() {
+                 *                  //此处的handler可能在ServerBootstrapAcceptor之后
+                 *                 pipeline.addLast(new LoggingHandler(LogLevel.INFO));
+                 *             }
+                 *         });
+                 *     }
+                 *
+                 * });
+                 *
+                 * 如果不用eventLoop().execute()，则 ChannelInitializer先被addLast，
+                 * 然后是ServerBootstrapAcceptor被add
+                 * 而 ChannelInitializer 中的  pipeline.addLast(new LoggingHandler(LogLevel.INFO)); 操作会在之后进行
+                 * 就会导致上述问题
+                 */
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        //ServerBootstrapAcceptor 也是一个 ChannelHandler 实现类，用于接受客户端的连接请求
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -247,7 +276,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
 
             setChannelOptions(child, childOptions, logger);
 
-            for (Entry<AttributeKey<?>, Object> e: childAttrs) {
+            for (Entry<AttributeKey<?>, Object> e : childAttrs) {
                 child.attr((AttributeKey<Object>) e.getKey()).set(e.getValue());
             }
 

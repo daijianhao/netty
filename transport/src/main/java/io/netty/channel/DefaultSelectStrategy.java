@@ -19,6 +19,8 @@ import io.netty.util.IntSupplier;
 
 /**
  * Default select strategy.
+ *
+ * 实现 SelectStrategy 接口，默认选择策略实现类
  */
 final class DefaultSelectStrategy implements SelectStrategy {
     static final SelectStrategy INSTANCE = new DefaultSelectStrategy();
@@ -27,6 +29,9 @@ final class DefaultSelectStrategy implements SelectStrategy {
 
     @Override
     public int calculateStrategy(IntSupplier selectSupplier, boolean hasTasks) throws Exception {
+        //当 hasTasks 为 true ，表示当前已经有任务，所以调用 IntSupplier#get() 方法，返回当前 Channel 新增的 IO 就绪事件的数量
+        //实际上，这里不调用 IntSupplier#get() 方法，也是可以的。
+        // 只不过考虑到，可以通过 #selectNow() 方法，无阻塞的 select Channel 是否有感兴趣的就绪事件。
         return hasTasks ? selectSupplier.get() : SelectStrategy.SELECT;
     }
 }

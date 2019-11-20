@@ -17,6 +17,8 @@ package io.netty.util;
 
 /**
  * Represents a supplier of {@code int}-valued results.
+ *
+ * 类似 Java 自带的 Callable<Int>
  */
 public interface IntSupplier {
 

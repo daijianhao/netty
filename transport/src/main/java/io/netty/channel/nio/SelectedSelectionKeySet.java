@@ -21,9 +21,19 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
+/**
+ * 继承 AbstractSet 抽象类，已 select 的 NIO SelectionKey 集合
+ */
 final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
 
+    /**
+     * SelectionKey 数组
+     */
     SelectionKey[] keys;
+
+    /**
+     * 数组可读大小
+     */
     int size;
 
     SelectedSelectionKeySet() {
@@ -46,6 +56,7 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
 
     @Override
     public boolean remove(Object o) {
+        //因为 #remove(Object o)、#contains(Object o)、#iterator() 不会使用到，索性不进行实现
         return false;
     }
 
@@ -85,6 +96,7 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
     }
 
     void reset() {
+        //每次读取使用完数据，调用该方法，进行重置。
         reset(0);
     }
 
@@ -94,8 +106,11 @@ final class SelectedSelectionKeySet extends AbstractSet<SelectionKey> {
     }
 
     private void increaseCapacity() {
+        // 两倍扩容
         SelectionKey[] newKeys = new SelectionKey[keys.length << 1];
+        // 复制老数组到新数组
         System.arraycopy(keys, 0, newKeys, 0, size);
+        // 赋值给老数组
         keys = newKeys;
     }
 }

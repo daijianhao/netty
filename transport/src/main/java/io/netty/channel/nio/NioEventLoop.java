@@ -648,10 +648,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             }
             // Always handle shutdown even if the loop processing threw an exception.
             try {
-                if (isShuttingDown()) {
+                if (isShuttingDown()) {//如果检测到Executor关闭，就关闭注册的channel
                     closeAll();
                     if (confirmShutdown()) {
-                        return;
+                        return;//退出
                     }
                 }
             } catch (Throwable t) {

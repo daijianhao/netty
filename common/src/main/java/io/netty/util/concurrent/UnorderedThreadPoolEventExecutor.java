@@ -135,6 +135,13 @@ public final class UnorderedThreadPoolEventExecutor extends ScheduledThreadPoolE
         terminationFuture.trySuccess(null);
     }
 
+    /**
+     * Netty默认的shutdownGracefully()机制为：在2秒的静默时间内如果没有任务，则关闭；
+     * 否则15秒截止时间到达时关闭。换句话说，在15秒时间段内，如果有超过2秒的时间段没有任务则关闭。
+     * 至此，我们明白了从EvnetLoop循环中跳出的机制，最后，我们抵达终点站：线程结束机制。
+     *
+     * @return
+     */
     @Override
     public Future<?> shutdownGracefully() {
         return shutdownGracefully(2, 15, TimeUnit.SECONDS);
@@ -214,13 +221,13 @@ public final class UnorderedThreadPoolEventExecutor extends ScheduledThreadPoolE
         private final RunnableScheduledFuture<V> future;
 
         RunnableScheduledFutureTask(EventExecutor executor, Runnable runnable,
-                                           RunnableScheduledFuture<V> future) {
+                                    RunnableScheduledFuture<V> future) {
             super(executor, runnable, null);
             this.future = future;
         }
 
         RunnableScheduledFutureTask(EventExecutor executor, Callable<V> callable,
-                                           RunnableScheduledFuture<V> future) {
+                                    RunnableScheduledFuture<V> future) {
             super(executor, callable);
             this.future = future;
         }

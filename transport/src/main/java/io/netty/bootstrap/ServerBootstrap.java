@@ -207,6 +207,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     @Override
                     public void run() {
                         //ServerBootstrapAcceptor 也是一个 ChannelHandler 实现类，用于接受客户端的连接请求
+                        //ServerBootstrapAcceptor相当于将客户端连接请求交给了childGroup 即 workerGroup处理
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -281,6 +282,7 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
             }
 
             try {
+                //将Read事件注册到了childGroup中的
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

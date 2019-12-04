@@ -152,7 +152,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
      *
      * @param task to be removed.
      * @return {@code true} if the task was removed as a result of this call.
-     *
+     * <p>
      * 移除指定任务
      */
     @UnstableApi
@@ -162,6 +162,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
 
     /**
      * 判断该任务是否需要唤醒线程
+     *
      * @param task
      * @return
      */
@@ -176,6 +177,86 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
      */
     @Override
     protected void afterRunningAllTasks() {
+        //执行任务队列 tailTasks 的任务
+        //那么，可能很多胖友会和我有一样的疑问，到底什么样的任务，适合添加到 tailTasks 中呢？
+        // 笔者请教了自己的好基友，闪电侠，来解答了这个问题。他实现了批量提交写入功能的 Handler
+        //public class BatchFlushHandler extends ChannelOutboundHandlerAdapter {
+        //
+        //    private CompositeByteBuf compositeByteBuf;
+        //    /**
+        //    * 是否使用 CompositeByteBuf 对象，用于数据写入
+        //    **/
+        //    private boolean preferComposite;
+        //
+        //    private SingleThreadEventLoop eventLoop;
+        //
+        //    private Channel.Unsafe unsafe;
+        //
+        //    /**
+        //    * 是否添加任务到 tailTaskQueue 队列中
+        //    */
+        //    private boolean hasAddTailTask = false;
+        //
+        //    public BatchFlushHandler() {
+        //        this(true);
+        //    }
+        //
+        //    public BatchFlushHandler(boolean preferComposite) {
+        //        this.preferComposite = preferComposite;
+        //    }
+        //
+        //    @Override
+        //    public void handlerAdded(ChannelHandlerContext ctx) {
+        //        // 初始化 CompositeByteBuf 对象，如果开启 preferComposite 功能
+        //        if (preferComposite) {
+        //            compositeByteBuf = ctx.alloc().compositeBuffer();
+        //        }
+        //        eventLoop = (SingleThreadEventLoop) ctx.executor();
+        //        unsafe = ctx.channel().unsafe();
+        //    }
+        //
+        //    @Override
+        //    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+        //        // 写入到 CompositeByteBuf 对象中
+        //        if (preferComposite) {
+        //            compositeByteBuf.addComponent(true, (ByteBuf) msg);
+        //        // 普通写入
+        //        } else {
+        //            ctx.write(msg);
+        //        }
+        //    }
+        //
+        //    @Override
+        //    public void flush(ChannelHandlerContext ctx) {
+        //        // 通过 hasAddTailTask 有且仅有每个 EventLoop 执行循环( run )，只添加一次任务
+        //        if (!hasAddTailTask) {
+        //            hasAddTailTask = true;
+        //
+        //            // 【重点】添加最终批量提交( flush )的任务
+        //            // 【重点】添加最终批量提交( flush )的任务
+        //            // 【重点】添加最终批量提交( flush )的任务
+        //            eventLoop.executeAfterEventLoopIteration(() -> {
+        //                if (preferComposite) {
+        //                    ctx.writeAndFlush(compositeByteBuf).addListener(future -> compositeByteBuf = ctx.alloc()
+        //                            .compositeBuffer());
+        //                } else {
+        //                    unsafe.flush();
+        //                }
+        //
+        //                // 重置 hasAddTailTask ，从而实现下个 EventLoop 执行循环( run )，可以再添加一次任务
+        //                hasAddTailTask = false;
+        //            });
+        //        }
+        //    }
+        //}
+        //这样的好处：https://mp.weixin.qq.com/s/JRsbK1Un2av9GKmJ8DK7IQ
+        //Netty 提供了一个方便的解码工具类 ByteToMessageDecoder ，如图上半部分所示，这个类具备 accumulate 批量解包能力，
+        // 可以尽可能的从 socket 里读取字节，然后同步调用 decode 方法，解码出业务对象，并组成一个 List 。
+        // 最后再循环遍历该 List ，依次提交到 ChannelPipeline 进行处理。此处我们做了一个细小的改动，
+        // 如图下半部分所示，即将提交的内容从单个 command ，改为整个 List 一起提交，如此能减少 pipeline 的执行次数，
+        // 同时提升吞吐量。这个模式在低并发场景，并没有什么优势，而在高并发场景下对提升吞吐量有不小的性能提升。
+        //
+        //最佳实践：ByteToMessageDecoder  因为内部的实现有成员变量，不是无状态的，所以一定不能被设置为 @Sharable
         runAllTasksFrom(tailTasks);
     }
 
@@ -197,7 +278,7 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
 
     /**
      * Marker interface for {@link Runnable} that will not trigger an {@link #wakeup(boolean)} in all cases.
-     *
+     * <p>
      * 用于标记不唤醒线程的任务
      */
     interface NonWakeupRunnable extends Runnable {

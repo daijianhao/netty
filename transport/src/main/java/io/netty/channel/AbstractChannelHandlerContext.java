@@ -34,48 +34,95 @@ import io.netty.util.internal.logging.InternalLoggerFactory;
 import java.net.SocketAddress;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 
+/**
+ * 实现 ChannelHandlerContext、ResourceLeakHint 接口，继承 DefaultAttributeMap 类，ChannelHandlerContext 抽象基类。
+ */
 abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, ResourceLeakHint {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AbstractChannelHandlerContext.class);
+
+    /**
+     * 上一个节点
+     */
     volatile AbstractChannelHandlerContext next;
+
+    /**
+     * 下一个节点
+     */
     volatile AbstractChannelHandlerContext prev;
 
+    /**
+     * {@link #handlerState} 的原子更新器
+     */
     private static final AtomicIntegerFieldUpdater<AbstractChannelHandlerContext> HANDLER_STATE_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(AbstractChannelHandlerContext.class, "handlerState");
 
     /**
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} is about to be called.
+     * 添加准备中
      */
     private static final int ADD_PENDING = 1;
     /**
      * {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} was called.
+     * 已添加
      */
     private static final int ADD_COMPLETE = 2;
     /**
      * {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
+     * 已移除
      */
     private static final int REMOVE_COMPLETE = 3;
     /**
      * Neither {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}
      * nor {@link ChannelHandler#handlerRemoved(ChannelHandlerContext)} was called.
+     * 初始化
      */
     private static final int INIT = 0;
 
+    /**
+     * 是否为 inbound
+     */
     private final boolean inbound;
+
+    /**
+     * 是否为 outbound
+     */
     private final boolean outbound;
+
+    /**
+     * 所属 pipeline
+     */
     private final DefaultChannelPipeline pipeline;
+
+    /**
+     * 名字
+     */
     private final String name;
+
+    /**
+     * 是否使用有序的 EventExecutor ( {@link #executor} )，即 OrderedEventExecutor
+     */
     private final boolean ordered;
 
     // Will be set to null if no child executor should be used, otherwise it will be set to the
     // child executor.
+    /**
+     * EventExecutor 对象
+     */
     final EventExecutor executor;
+
+    /**
+     * 成功的 Promise 对象
+     */
     private ChannelFuture succeededFuture;
 
     // Lazily instantiated tasks used to trigger events to a handler with different executor.
     // There is no need to make this volatile as at worse it will just create a few more instances then needed.
     private Tasks invokeTasks;
 
+    /**
+     * 处理器状态
+     */
     private volatile int handlerState = INIT;
 
     AbstractChannelHandlerContext(DefaultChannelPipeline pipeline, EventExecutor executor, String name,
@@ -281,15 +328,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             } catch (Throwable error) {
                 if (logger.isDebugEnabled()) {
                     logger.debug(
-                        "An exception {}" +
-                        "was thrown by a user handler's exceptionCaught() " +
-                        "method while handling the following exception:",
-                        ThrowableUtil.stackTraceToString(error), cause);
+                            "An exception {}" +
+                                    "was thrown by a user handler's exceptionCaught() " +
+                                    "method while handling the following exception:",
+                            ThrowableUtil.stackTraceToString(error), cause);
                 } else if (logger.isWarnEnabled()) {
                     logger.warn(
-                        "An exception '{}' [enable DEBUG level for full stacktrace] " +
-                        "was thrown by a user handler's exceptionCaught() " +
-                        "method while handling the following exception:", error, cause);
+                            "An exception '{}' [enable DEBUG level for full stacktrace] " +
+                                    "was thrown by a user handler's exceptionCaught() " +
+                                    "method while handling the following exception:", error, cause);
                 }
             }
         } else {
@@ -781,7 +828,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             final AbstractWriteTask task;
             if (flush) {
                 task = WriteAndFlushTask.newInstance(next, m, promise);
-            }  else {
+            } else {
                 task = WriteTask.newInstance(next, m, promise);
             }
             if (!safeExecute(executor, task, promise, m)) {
@@ -924,8 +971,17 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         handlerState = REMOVE_COMPLETE;
     }
 
+    /**
+     * 设置 ChannelHandler 添加完成。完成后，状态有两种结果：
+     * <p>
+     * 1.REMOVE_COMPLETE
+     * 2.ADD_COMPLETE
+     *
+     * @return
+     */
     final boolean setAddComplete() {
-        for (;;) {
+        //循环 + CAS 保证多线程下的安全变更 handlerState 属性。
+        for (; ; ) {
             int oldState = handlerState;
             if (oldState == REMOVE_COMPLETE) {
                 return false;
@@ -939,6 +995,11 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
+    /**
+     * 设置 ChannelHandler 准备添加中
+     * <p>
+     * 当且仅当 INIT 可修改为 ADD_PENDING 。理论来说，这是一个绝对会成功的操作
+     */
     final void setAddPending() {
         boolean updated = HANDLER_STATE_UPDATER.compareAndSet(this, INIT, ADD_PENDING);
         assert updated; // This should always be true as it MUST be called before setAddComplete() or setRemoved().
@@ -967,7 +1028,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     /**
      * Makes best possible effort to detect if {@link ChannelHandler#handlerAdded(ChannelHandlerContext)} was called
      * yet. If not return {@code false} and if called or could not detect return {@code true}.
-     *
+     * <p>
      * If this method returns {@code false} we will not invoke the {@link ChannelHandler} but just forward the event.
      * This is needed as {@link DefaultChannelPipeline} may already put the {@link ChannelHandler} in the linked-list
      * but not called {@link ChannelHandler#handlerAdded(ChannelHandlerContext)}.
@@ -1121,7 +1182,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         };
 
         static WriteAndFlushTask newInstance(
-                AbstractChannelHandlerContext ctx, Object msg,  ChannelPromise promise) {
+                AbstractChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
             WriteAndFlushTask task = RECYCLER.get();
             init(task, ctx, msg, promise);
             return task;

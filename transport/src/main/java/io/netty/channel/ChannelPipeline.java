@@ -36,11 +36,11 @@ import java.util.NoSuchElementException;
  * interact with each other.
  *
  * <h3>Creation of a pipeline</h3>
- *
+ * <p>
  * Each channel has its own pipeline and it is created automatically when a new channel is created.
  *
  * <h3>How an event flows in a pipeline</h3>
- *
+ * <p>
  * The following diagram describes how I/O events are processed by {@link ChannelHandler}s in a {@link ChannelPipeline}
  * typically. An I/O event is handled by either a {@link ChannelInboundHandler} or a {@link ChannelOutboundHandler}
  * and be forwarded to its closest handler by calling the event propagation methods defined in
@@ -124,7 +124,7 @@ import java.util.NoSuchElementException;
  * </ul>
  *
  * <h3>Forwarding an event to the next handler</h3>
- *
+ * <p>
  * As you might noticed in the diagram shows, a handler has to invoke the event propagation methods in
  * {@link ChannelHandlerContext} to forward an event to its next handler.  Those methods include:
  * <ul>
@@ -154,7 +154,7 @@ import java.util.NoSuchElementException;
  *     </ul>
  * </li>
  * </ul>
- *
+ * <p>
  * and the following example shows how the event propagation is usually done:
  *
  * <pre>
@@ -187,7 +187,7 @@ import java.util.NoSuchElementException;
  * <li>Protocol Encoder - translates a Java object into binary data.</li>
  * <li>Business Logic Handler - performs the actual business logic (e.g. database access).</li>
  * </ol>
- *
+ * <p>
  * and it could be represented as shown in the following example:
  *
  * <pre>
@@ -212,63 +212,59 @@ import java.util.NoSuchElementException;
  * A {@link ChannelHandler} can be added or removed at any time because a {@link ChannelPipeline} is thread safe.
  * For example, you can insert an encryption handler when sensitive information is about to be exchanged, and remove it
  * after the exchange.
+ * <p>
+ * ChannelPipeline 为 ChannelHandler 的链，提供了一个容器并定义了用于沿着链传播入站和出站事件流的 API 。一个数据或者事件可能会
+ * 被多个 Handler 处理，在这个过程中，数据或者事件经流 ChannelPipeline ，由 ChannelHandler 处理。在这个处理过程中，一个
+ * ChannelHandler 接收数据后处理完成后交给下一个 ChannelHandler，或者什么都不做直接交给下一个 ChannelHandler。
+ *
+ * 有可能会疑惑为什么继承 Iterable 接口？因为 ChannelPipeline 是 ChannelHandler 的链。
  */
 public interface ChannelPipeline
         extends ChannelInboundInvoker, ChannelOutboundInvoker, Iterable<Entry<String, ChannelHandler>> {
 
+    //此处开始都是与添加ChannelHandler相关的方法
+
     /**
      * Inserts a {@link ChannelHandler} at the first position of this pipeline.
      *
-     * @param name     the name of the handler to insert first
-     * @param handler  the handler to insert first
-     *
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified handler is {@code null}
+     * @param name    the name of the handler to insert first
+     * @param handler the handler to insert first
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified handler is {@code null}
      */
     ChannelPipeline addFirst(String name, ChannelHandler handler);
 
     /**
      * Inserts a {@link ChannelHandler} at the first position of this pipeline.
      *
-     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
-     *                 methods
-     * @param name     the name of the handler to insert first
-     * @param handler  the handler to insert first
-     *
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified handler is {@code null}
+     * @param group   the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                methods
+     * @param name    the name of the handler to insert first
+     * @param handler the handler to insert first
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified handler is {@code null}
      */
     ChannelPipeline addFirst(EventExecutorGroup group, String name, ChannelHandler handler);
 
     /**
      * Appends a {@link ChannelHandler} at the last position of this pipeline.
      *
-     * @param name     the name of the handler to append
-     * @param handler  the handler to append
-     *
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified handler is {@code null}
+     * @param name    the name of the handler to append
+     * @param handler the handler to append
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified handler is {@code null}
      */
     ChannelPipeline addLast(String name, ChannelHandler handler);
 
     /**
      * Appends a {@link ChannelHandler} at the last position of this pipeline.
      *
-     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
-     *                 methods
-     * @param name     the name of the handler to append
-     * @param handler  the handler to append
-     *
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified handler is {@code null}
+     * @param group   the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                methods
+     * @param name    the name of the handler to append
+     * @param handler the handler to append
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified handler is {@code null}
      */
     ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler);
 
@@ -276,16 +272,12 @@ public interface ChannelPipeline
      * Inserts a {@link ChannelHandler} before an existing handler of this
      * pipeline.
      *
-     * @param baseName  the name of the existing handler
-     * @param name      the name of the handler to insert before
-     * @param handler   the handler to insert before
-     *
-     * @throws NoSuchElementException
-     *         if there's no such entry with the specified {@code baseName}
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified baseName or handler is {@code null}
+     * @param baseName the name of the existing handler
+     * @param name     the name of the handler to insert before
+     * @param handler  the handler to insert before
+     * @throws NoSuchElementException   if there's no such entry with the specified {@code baseName}
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified baseName or handler is {@code null}
      */
     ChannelPipeline addBefore(String baseName, String name, ChannelHandler handler);
 
@@ -293,18 +285,14 @@ public interface ChannelPipeline
      * Inserts a {@link ChannelHandler} before an existing handler of this
      * pipeline.
      *
-     * @param group     the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
-     *                  methods
-     * @param baseName  the name of the existing handler
-     * @param name      the name of the handler to insert before
-     * @param handler   the handler to insert before
-     *
-     * @throws NoSuchElementException
-     *         if there's no such entry with the specified {@code baseName}
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified baseName or handler is {@code null}
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                 methods
+     * @param baseName the name of the existing handler
+     * @param name     the name of the handler to insert before
+     * @param handler  the handler to insert before
+     * @throws NoSuchElementException   if there's no such entry with the specified {@code baseName}
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified baseName or handler is {@code null}
      */
     ChannelPipeline addBefore(EventExecutorGroup group, String baseName, String name, ChannelHandler handler);
 
@@ -312,16 +300,12 @@ public interface ChannelPipeline
      * Inserts a {@link ChannelHandler} after an existing handler of this
      * pipeline.
      *
-     * @param baseName  the name of the existing handler
-     * @param name      the name of the handler to insert after
-     * @param handler   the handler to insert after
-     *
-     * @throws NoSuchElementException
-     *         if there's no such entry with the specified {@code baseName}
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified baseName or handler is {@code null}
+     * @param baseName the name of the existing handler
+     * @param name     the name of the handler to insert after
+     * @param handler  the handler to insert after
+     * @throws NoSuchElementException   if there's no such entry with the specified {@code baseName}
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified baseName or handler is {@code null}
      */
     ChannelPipeline addAfter(String baseName, String name, ChannelHandler handler);
 
@@ -329,95 +313,79 @@ public interface ChannelPipeline
      * Inserts a {@link ChannelHandler} after an existing handler of this
      * pipeline.
      *
-     * @param group     the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
-     *                  methods
-     * @param baseName  the name of the existing handler
-     * @param name      the name of the handler to insert after
-     * @param handler   the handler to insert after
-     *
-     * @throws NoSuchElementException
-     *         if there's no such entry with the specified {@code baseName}
-     * @throws IllegalArgumentException
-     *         if there's an entry with the same name already in the pipeline
-     * @throws NullPointerException
-     *         if the specified baseName or handler is {@code null}
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                 methods
+     * @param baseName the name of the existing handler
+     * @param name     the name of the handler to insert after
+     * @param handler  the handler to insert after
+     * @throws NoSuchElementException   if there's no such entry with the specified {@code baseName}
+     * @throws IllegalArgumentException if there's an entry with the same name already in the pipeline
+     * @throws NullPointerException     if the specified baseName or handler is {@code null}
      */
     ChannelPipeline addAfter(EventExecutorGroup group, String baseName, String name, ChannelHandler handler);
 
     /**
      * Inserts {@link ChannelHandler}s at the first position of this pipeline.
      *
-     * @param handlers  the handlers to insert first
-     *
+     * @param handlers the handlers to insert first
      */
     ChannelPipeline addFirst(ChannelHandler... handlers);
 
     /**
      * Inserts {@link ChannelHandler}s at the first position of this pipeline.
      *
-     * @param group     the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}s
-     *                  methods.
-     * @param handlers  the handlers to insert first
-     *
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}s
+     *                 methods.
+     * @param handlers the handlers to insert first
      */
     ChannelPipeline addFirst(EventExecutorGroup group, ChannelHandler... handlers);
 
     /**
      * Inserts {@link ChannelHandler}s at the last position of this pipeline.
      *
-     * @param handlers  the handlers to insert last
-     *
+     * @param handlers the handlers to insert last
      */
     ChannelPipeline addLast(ChannelHandler... handlers);
 
     /**
      * Inserts {@link ChannelHandler}s at the last position of this pipeline.
      *
-     * @param group     the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}s
-     *                  methods.
-     * @param handlers  the handlers to insert last
-     *
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}s
+     *                 methods.
+     * @param handlers the handlers to insert last
      */
     ChannelPipeline addLast(EventExecutorGroup group, ChannelHandler... handlers);
+
+
+    // ==========此处开始是 移除 ChannelHandler 相关 ==========
 
     /**
      * Removes the specified {@link ChannelHandler} from this pipeline.
      *
-     * @param  handler          the {@link ChannelHandler} to remove
-     *
-     * @throws NoSuchElementException
-     *         if there's no such handler in this pipeline
-     * @throws NullPointerException
-     *         if the specified handler is {@code null}
+     * @param handler the {@link ChannelHandler} to remove
+     * @throws NoSuchElementException if there's no such handler in this pipeline
+     * @throws NullPointerException   if the specified handler is {@code null}
      */
     ChannelPipeline remove(ChannelHandler handler);
 
     /**
      * Removes the {@link ChannelHandler} with the specified name from this pipeline.
      *
-     * @param  name             the name under which the {@link ChannelHandler} was stored.
-     *
+     * @param name the name under which the {@link ChannelHandler} was stored.
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if there's no such handler with the specified name in this pipeline
-     * @throws NullPointerException
-     *         if the specified name is {@code null}
+     * @throws NoSuchElementException if there's no such handler with the specified name in this pipeline
+     * @throws NullPointerException   if the specified name is {@code null}
      */
     ChannelHandler remove(String name);
 
     /**
      * Removes the {@link ChannelHandler} of the specified type from this pipeline.
      *
-     * @param <T>           the type of the handler
-     * @param handlerType   the type of the handler
-     *
+     * @param <T>         the type of the handler
+     * @param handlerType the type of the handler
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if there's no such handler of the specified type in this pipeline
-     * @throws NullPointerException
-     *         if the specified handler type is {@code null}
+     * @throws NoSuchElementException if there's no such handler of the specified type in this pipeline
+     * @throws NullPointerException   if the specified handler type is {@code null}
      */
     <T extends ChannelHandler> T remove(Class<T> handlerType);
 
@@ -425,9 +393,7 @@ public interface ChannelPipeline
      * Removes the first {@link ChannelHandler} in this pipeline.
      *
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if this pipeline is empty
+     * @throws NoSuchElementException if this pipeline is empty
      */
     ChannelHandler removeFirst();
 
@@ -435,73 +401,62 @@ public interface ChannelPipeline
      * Removes the last {@link ChannelHandler} in this pipeline.
      *
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if this pipeline is empty
+     * @throws NoSuchElementException if this pipeline is empty
      */
     ChannelHandler removeLast();
+
+
+    //此处开始是替换ChannelHandler的方法
 
     /**
      * Replaces the specified {@link ChannelHandler} with a new handler in this pipeline.
      *
-     * @param  oldHandler    the {@link ChannelHandler} to be replaced
-     * @param  newName       the name under which the replacement should be added
-     * @param  newHandler    the {@link ChannelHandler} which is used as replacement
-     *
+     * @param oldHandler the {@link ChannelHandler} to be replaced
+     * @param newName    the name under which the replacement should be added
+     * @param newHandler the {@link ChannelHandler} which is used as replacement
      * @return itself
-
-     * @throws NoSuchElementException
-     *         if the specified old handler does not exist in this pipeline
-     * @throws IllegalArgumentException
-     *         if a handler with the specified new name already exists in this
-     *         pipeline, except for the handler to be replaced
-     * @throws NullPointerException
-     *         if the specified old handler or new handler is
-     *         {@code null}
+     * @throws NoSuchElementException   if the specified old handler does not exist in this pipeline
+     * @throws IllegalArgumentException if a handler with the specified new name already exists in this
+     *                                  pipeline, except for the handler to be replaced
+     * @throws NullPointerException     if the specified old handler or new handler is
+     *                                  {@code null}
      */
     ChannelPipeline replace(ChannelHandler oldHandler, String newName, ChannelHandler newHandler);
 
     /**
      * Replaces the {@link ChannelHandler} of the specified name with a new handler in this pipeline.
      *
-     * @param  oldName       the name of the {@link ChannelHandler} to be replaced
-     * @param  newName       the name under which the replacement should be added
-     * @param  newHandler    the {@link ChannelHandler} which is used as replacement
-     *
+     * @param oldName    the name of the {@link ChannelHandler} to be replaced
+     * @param newName    the name under which the replacement should be added
+     * @param newHandler the {@link ChannelHandler} which is used as replacement
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if the handler with the specified old name does not exist in this pipeline
-     * @throws IllegalArgumentException
-     *         if a handler with the specified new name already exists in this
-     *         pipeline, except for the handler to be replaced
-     * @throws NullPointerException
-     *         if the specified old handler or new handler is
-     *         {@code null}
+     * @throws NoSuchElementException   if the handler with the specified old name does not exist in this pipeline
+     * @throws IllegalArgumentException if a handler with the specified new name already exists in this
+     *                                  pipeline, except for the handler to be replaced
+     * @throws NullPointerException     if the specified old handler or new handler is
+     *                                  {@code null}
      */
     ChannelHandler replace(String oldName, String newName, ChannelHandler newHandler);
 
     /**
      * Replaces the {@link ChannelHandler} of the specified type with a new handler in this pipeline.
      *
-     * @param  oldHandlerType   the type of the handler to be removed
-     * @param  newName          the name under which the replacement should be added
-     * @param  newHandler       the {@link ChannelHandler} which is used as replacement
-     *
+     * @param oldHandlerType the type of the handler to be removed
+     * @param newName        the name under which the replacement should be added
+     * @param newHandler     the {@link ChannelHandler} which is used as replacement
      * @return the removed handler
-     *
-     * @throws NoSuchElementException
-     *         if the handler of the specified old handler type does not exist
-     *         in this pipeline
-     * @throws IllegalArgumentException
-     *         if a handler with the specified new name already exists in this
-     *         pipeline, except for the handler to be replaced
-     * @throws NullPointerException
-     *         if the specified old handler or new handler is
-     *         {@code null}
+     * @throws NoSuchElementException   if the handler of the specified old handler type does not exist
+     *                                  in this pipeline
+     * @throws IllegalArgumentException if a handler with the specified new name already exists in this
+     *                                  pipeline, except for the handler to be replaced
+     * @throws NullPointerException     if the specified old handler or new handler is
+     *                                  {@code null}
      */
     <T extends ChannelHandler> T replace(Class<T> oldHandlerType, String newName,
                                          ChannelHandler newHandler);
+
+
+    // ========== 此处开始是查询 ChannelHandler 相关 ==========
 
     /**
      * Returns the first {@link ChannelHandler} in this pipeline.
@@ -536,7 +491,7 @@ public interface ChannelPipeline
      * pipeline.
      *
      * @return the handler with the specified name.
-     *         {@code null} if there's no such handler in this pipeline.
+     * {@code null} if there's no such handler in this pipeline.
      */
     ChannelHandler get(String name);
 
@@ -545,7 +500,7 @@ public interface ChannelPipeline
      * pipeline.
      *
      * @return the handler of the specified handler type.
-     *         {@code null} if there's no such handler in this pipeline.
+     * {@code null} if there's no such handler in this pipeline.
      */
     <T extends ChannelHandler> T get(Class<T> handlerType);
 
@@ -554,7 +509,7 @@ public interface ChannelPipeline
      * this pipeline.
      *
      * @return the context object of the specified handler.
-     *         {@code null} if there's no such handler in this pipeline.
+     * {@code null} if there's no such handler in this pipeline.
      */
     ChannelHandlerContext context(ChannelHandler handler);
 
@@ -563,7 +518,7 @@ public interface ChannelPipeline
      * specified name in this pipeline.
      *
      * @return the context object of the handler with the specified name.
-     *         {@code null} if there's no such handler in this pipeline.
+     * {@code null} if there's no such handler in this pipeline.
      */
     ChannelHandlerContext context(String name);
 
@@ -572,10 +527,12 @@ public interface ChannelPipeline
      * specified type in this pipeline.
      *
      * @return the context object of the handler of the specified type.
-     *         {@code null} if there's no such handler in this pipeline.
+     * {@code null} if there's no such handler in this pipeline.
      */
     ChannelHandlerContext context(Class<? extends ChannelHandler> handlerType);
 
+
+    // ========== Channel 相关 ==========
     /**
      * Returns the {@link Channel} that this pipeline is attached to.
      *
@@ -593,6 +550,8 @@ public interface ChannelPipeline
      * handler names and whose values are handlers.
      */
     Map<String, ChannelHandler> toMap();
+
+    // ========== ChannelInboundInvoker 相关 ==========
 
     @Override
     ChannelPipeline fireChannelRegistered();
@@ -621,6 +580,7 @@ public interface ChannelPipeline
     @Override
     ChannelPipeline fireChannelWritabilityChanged();
 
+    // ========== ChannelOutboundInvoker 相关 ==========
     @Override
     ChannelPipeline flush();
 }

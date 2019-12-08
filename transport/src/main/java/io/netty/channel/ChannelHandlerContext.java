@@ -30,20 +30,20 @@ import java.nio.channels.Channels;
  * {@link ChannelPipeline} as well as modify the {@link ChannelPipeline} it belongs to dynamically.
  *
  * <h3>Notify</h3>
- *
+ * <p>
  * You can notify the closest handler in the same {@link ChannelPipeline} by calling one of the various methods
  * provided here.
- *
+ * <p>
  * Please refer to {@link ChannelPipeline} to understand how an event flows.
  *
  * <h3>Modifying a pipeline</h3>
- *
+ * <p>
  * You can get the {@link ChannelPipeline} your handler belongs to by calling
  * {@link #pipeline()}.  A non-trivial application could insert, remove, or
  * replace handlers in the pipeline dynamically at runtime.
  *
  * <h3>Retrieving for later use</h3>
- *
+ * <p>
  * You can keep the {@link ChannelHandlerContext} for later use, such as
  * triggering an event outside the handler methods, even from a different thread.
  * <pre>
@@ -63,14 +63,14 @@ import java.nio.channels.Channels;
  * </pre>
  *
  * <h3>Storing stateful information</h3>
- *
+ * <p>
  * {@link #attr(AttributeKey)} allow you to
  * store and access stateful information that is related with a handler and its
  * context.  Please refer to {@link ChannelHandler} to learn various recommended
  * ways to manage stateful information.
  *
  * <h3>A handler can have more than one context</h3>
- *
+ * <p>
  * Please note that a {@link ChannelHandler} instance can be added to more than
  * one {@link ChannelPipeline}.  It means a single {@link ChannelHandler}
  * instance can have more than one {@link ChannelHandlerContext} and therefore
@@ -121,8 +121,13 @@ import java.nio.channels.Channels;
  * {@link ChannelPipeline} to find out more about inbound and outbound operations,
  * what fundamental differences they have, how they flow in a  pipeline,  and how to handle
  * the operation in your application.
+ * <p>
+ * 继承 ChannelInboundInvoker、ChannelOutboundInvoker、AttributeMap 接口，ChannelHandler Context( 上下文 )接口，
+ * 作为 ChannelPipeline 中的节点
  */
 public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvoker, ChannelOutboundInvoker {
+
+    // ========== Context 相关 ==========
 
     /**
      * Return the {@link Channel} which is bound to the {@link ChannelHandlerContext}.
@@ -150,8 +155,11 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
      * Return {@code true} if the {@link ChannelHandler} which belongs to this context was removed
      * from the {@link ChannelPipeline}. Note that this method is only meant to be called from with in the
      * {@link EventLoop}.
+     * 是否已经移除
      */
     boolean isRemoved();
+
+    // ========== ChannelInboundInvoker 相关 ==========
 
     @Override
     ChannelHandlerContext fireChannelRegistered();
@@ -191,10 +199,14 @@ public interface ChannelHandlerContext extends AttributeMap, ChannelInboundInvok
      */
     ChannelPipeline pipeline();
 
+    // ========== ByteBuf 相关 ==========
+
     /**
      * Return the assigned {@link ByteBufAllocator} which will be used to allocate {@link ByteBuf}s.
      */
     ByteBufAllocator alloc();
+
+    // ========== AttributeMap 相关 ==========
 
     /**
      * @deprecated Use {@link Channel#attr(AttributeKey)}

@@ -923,6 +923,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     /**
      * 执行一个任务
+     * <p>
+     * 只要有任务被放入EventExecutor,线程就开始启动
      *
      * @param task
      */

@@ -405,7 +405,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
 
-        //将channel异步注册到eventloop，在每个EventLoop实现类中都维护了channel的Map来保存注册了的Channel
+        //将channel异步注册到eventloop，在每个EventLoop实现类中都维护了Selector，这里将channel注册到Selector上
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
@@ -445,6 +445,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             public void run() {
                 if (regFuture.isSuccess()) {
                     //如果注册和初始化已经成功了，就绑定端口
+                    //这里由channel发起绑定，实际的bind()由pipeline.bind()完成
                     channel.bind(localAddress, promise).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
                 } else {
                     promise.setFailure(regFuture.cause());

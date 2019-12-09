@@ -153,6 +153,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public EventExecutor executor() {
+        //如果未设置子执行器，则使用 Channel 的 EventLoop 作为执行器。😈 一般情况下，我们可以忽略
+        // 子执行器的逻辑，也就是说，可以直接认为是使用 Channel 的 EventLoop 作为执行器。
         if (executor == null) {
             return channel().eventLoop();
         } else {
@@ -507,13 +509,15 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (localAddress == null) {
             throw new NullPointerException("localAddress");
         }
+        //判断 promise 是否为合法的 Promise 对象
         if (isNotValidPromise(promise, false)) {
             // cancelled
             return promise;
         }
-
+        //找到链表中前一个OutBoundHandlerContext
         final AbstractChannelHandlerContext next = findContextOutbound();
         EventExecutor executor = next.executor();
+        //将bind()事件继续向head方向的OutBound节点传播
         if (executor.inEventLoop()) {
             next.invokeBind(localAddress, promise);
         } else {
@@ -528,13 +532,20 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeBind(SocketAddress localAddress, ChannelPromise promise) {
-        if (invokeHandler()) {
+        if (invokeHandler()) {// 判断是否符合的 ChannelHandler
+            //若是符合的 ChannelHandler
             try {
+                //调用 ChannelHandler 的 #bind(ChannelHandlerContext ctx, SocketAddress localAddress, ChannelPromise promise) 方法，
+                // 处理 bind 事件
+                //ps:这里的bind()事件开始处理，若要bind()继续传播则需要handler再次调用ctx.bind( localAddress, promise),否则不会继续传播
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
             } catch (Throwable t) {
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
+            //若是不符合的 ChannelHandler ，则跳过该节点，
+            // 调用 AbstractChannelHandlerContext#bind(SocketAddress localAddress, ChannelPromise promise) 方法，
+            // 传播 Outbound 事件给下一个节点
             bind(localAddress, promise);
         }
     }
@@ -913,7 +924,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         if (promise == null) {
             throw new NullPointerException("promise");
         }
-
+        // Promise 已经完成
         if (promise.isDone()) {
             // Check if the promise was cancelled and if so signal that the processing of the operation
             // should not be performed.
@@ -924,21 +935,21 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             }
             throw new IllegalArgumentException("promise already done: " + promise);
         }
-
+        // Channel 不符合
         if (promise.channel() != channel()) {
             throw new IllegalArgumentException(String.format(
                     "promise.channel does not match: %s (expected: %s)", promise.channel(), channel()));
         }
-
+        // DefaultChannelPromise 合法
         if (promise.getClass() == DefaultChannelPromise.class) {
             return false;
         }
-
+        // 禁止 VoidChannelPromise
         if (!allowVoidPromise && promise instanceof VoidChannelPromise) {
             throw new IllegalArgumentException(
                     StringUtil.simpleClassName(VoidChannelPromise.class) + " not allowed for this operation");
         }
-
+        // 禁止 CloseFuture
         if (promise instanceof AbstractChannel.CloseFuture) {
             throw new IllegalArgumentException(
                     StringUtil.simpleClassName(AbstractChannel.CloseFuture.class) + " not allowed in a pipeline");
@@ -1008,7 +1019,9 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     final void callHandlerAdded() throws Exception {
         // We must call setAddComplete before calling handlerAdded. Otherwise if the handlerAdded method generates
         // any pipeline events ctx.handler() will miss them because the state will not allow it.
+        // 设置 AbstractChannelHandlerContext 已添加
         if (setAddComplete()) {
+            // 回调 ChannelHandler 添加完成( added )事件
             handler().handlerAdded(this);
         }
     }
@@ -1020,6 +1033,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 handler().handlerRemoved(this);
             }
         } finally {
+            //修改为移除状态
             // Mark the handler as removed in any case.
             setRemoved();
         }
@@ -1035,6 +1049,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
      */
     private boolean invokeHandler() {
         // Store in local variable to reduce volatile reads.
+        //对于 ordered = true 的节点，必须 ChannelHandler 已经添加完成。
+        //对于 ordered = false 的节点，没有 ChannelHandler 的要求。
         int handlerState = this.handlerState;
         return handlerState == ADD_COMPLETE || (!ordered && handlerState == ADD_PENDING);
     }

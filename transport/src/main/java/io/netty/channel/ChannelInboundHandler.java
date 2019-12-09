@@ -18,6 +18,11 @@ package io.netty.channel;
 /**
  * {@link ChannelHandler} which adds callbacks for state changes. This allows the user
  * to hook in to state changes easily.
+ * <p>
+ * 由外部触发的事件是inbound事件。外部是指应用程序之外，因此inbound事件就是并非因为应用程序主动请求做了什么而触发的事件，
+ * 比如某个socket上有数据读取进来了（注意是“读完了”这个事件，而不是“读取”这个操作），再比如某个socket连接了上来并被注册到了某个EventLoop。
+ * <p>
+ * 即inBound主要是当外部的某些事件发生后的回调处理
  */
 public interface ChannelInboundHandler extends ChannelHandler {
 

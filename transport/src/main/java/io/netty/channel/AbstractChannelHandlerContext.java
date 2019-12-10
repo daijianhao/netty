@@ -336,6 +336,10 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
         }
     }
 
+    /**
+     * 如果 Exception Caught 事件在 pipeline 中的传播过程中，一直没有处理掉该异常的节点，最终会到达尾节点 tail
+     * @param cause
+     */
     private void invokeExceptionCaught(final Throwable cause) {
         if (invokeHandler()) {
             try {
@@ -553,6 +557,8 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                 //ps:这里的bind()事件开始处理，若要bind()继续传播则需要handler再次调用ctx.bind( localAddress, promise),否则不会继续传播
                 ((ChannelOutboundHandler) handler()).bind(this, localAddress, promise);
             } catch (Throwable t) {
+                //当发生异常时，就会通知该监听器，对该异常做进一步自定义的处理。也就是说OutBound发生的异常，该异常不会在 pipeline 中传播。
+                //而是直接通知监听器处理
                 notifyOutboundHandlerException(t, promise);
             }
         } else {
@@ -873,9 +879,14 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     private static void notifyOutboundHandlerException(Throwable cause, ChannelPromise promise) {
         // Only log if the given promise is not of type VoidChannelPromise as tryFailure(...) is expected to return
         // false.
+        //通知 Outbound 事件的传播，发生异常
         PromiseNotificationUtil.tryFailure(promise, cause, promise instanceof VoidChannelPromise ? null : logger);
     }
 
+    /**
+     * 通知 Inbound 事件的传播，发生异常
+     * @param cause
+     */
     private void notifyHandlerException(Throwable cause) {
         if (inExceptionCaught(cause)) {
             if (logger.isWarnEnabled()) {
@@ -885,10 +896,17 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
             }
             return;
         }
-
+        //在 pipeline 中，传播 Exception Caught 事件
+        //比较特殊的是，Exception Caught 事件在 pipeline 的起始节点，不是 head 头节点，而是发生异常的当前节点开始。怎么理解好呢？
+        // 对于在 pipeline 上传播的 Inbound xxx 事件，在发生异常后，转化成 Exception Caught 事件，继续从当前节点，继续向下传播。
         invokeExceptionCaught(cause);
     }
 
+    /**
+     * 发生异常，仅打印错误日志，并 return 返回 。否则会形成死循环
+     * @param cause
+     * @return
+     */
     private static boolean inExceptionCaught(Throwable cause) {
         do {
             StackTraceElement[] trace = cause.getStackTrace();
@@ -897,6 +915,7 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
                     if (t == null) {
                         break;
                     }
+                    //通过 StackTraceElement 的方法名来判断，是不是 ChannelHandler#exceptionCaught(ChannelHandlerContext ctx, Throwable cause) 方法
                     if ("exceptionCaught".equals(t.getMethodName())) {
                         return true;
                     }

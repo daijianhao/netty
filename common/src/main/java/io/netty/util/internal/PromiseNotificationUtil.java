@@ -23,7 +23,8 @@ import io.netty.util.internal.logging.InternalLogger;
  */
 public final class PromiseNotificationUtil {
 
-    private PromiseNotificationUtil() { }
+    private PromiseNotificationUtil() {
+    }
 
     /**
      * Try to cancel the {@link Promise} and log if {@code logger} is not {@code null} in case this fails.
@@ -61,7 +62,8 @@ public final class PromiseNotificationUtil {
      * Try to mark the {@link Promise} as failure and log if {@code logger} is not {@code null} in case this fails.
      */
     public static void tryFailure(Promise<?> p, Throwable cause, InternalLogger logger) {
-        if (!p.tryFailure(cause) && logger != null) {
+        //通知 bind 事件对应的 Promise 对应的监听者们
+        if (!p.tryFailure(cause) && logger != null) {//尝试通知监听器，如果通知失败则打日志
             Throwable err = p.cause();
             if (err == null) {
                 logger.warn("Failed to mark a promise as failure because it has succeeded already: {}", p, cause);

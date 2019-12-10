@@ -1358,8 +1358,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     /**
      * Called once a {@link Throwable} hit the end of the {@link ChannelPipeline} without been handled by the user
      * in {@link ChannelHandler#exceptionCaught(ChannelHandlerContext, Throwable)}.
+     *
+     * 从英文注释中，我们也可以看到，这种情况出现在使用者未定义合适的 ChannelHandler 处理这种异常，所以对于这种情况下，tail 节点只好
+     * 打印告警日志。
+     * 实际使用时，笔者建议胖友一定要定义 ExceptionHandler ，能够处理掉所有的异常，而不要使用到 tail 节点的异常处理
      */
     protected void onUnhandledInboundException(Throwable cause) {
+        //打印告警日志，并调用 ReferenceCountUtil#release(Throwable) 方法，释放需要释放的资源
         try {
             logger.warn(
                     "An exceptionCaught() event was fired, and it reached at the tail of the pipeline. " +
@@ -1501,6 +1506,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+            //对于未被处理的异常，最终将由tail节点处理
             onUnhandledInboundException(cause);
         }
 

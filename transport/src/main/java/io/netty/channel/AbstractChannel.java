@@ -578,7 +578,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     //通过提交一个新的任务到 EventLoop 的线程中
                     @Override
                     public void run() {
-                        //触发Channel激活事件
+                        //触发Channel激活事件，这里是一个InBound事件
                         pipeline.fireChannelActive();
                         //一个Channel中持有一个pipeline
                     }

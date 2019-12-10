@@ -233,12 +233,20 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
 
     @Override
     public ChannelHandlerContext fireChannelActive() {
+        //找到下一个InBound节点(朝tail方向)，然后继续传播
         invokeChannelActive(findContextInbound());
         return this;
     }
 
+    /**
+     * 这是一个静态方法，负责通过ChannelHandlerContext来继续传播Active事件
+     *
+     * @param next
+     */
     static void invokeChannelActive(final AbstractChannelHandlerContext next) {
+        // 获得下一个 Inbound 节点的执行器
         EventExecutor executor = next.executor();
+        // 调用下一个 Inbound 节点的 Channel active 方法
         if (executor.inEventLoop()) {
             next.invokeChannelActive();
         } else {
@@ -252,13 +260,18 @@ abstract class AbstractChannelHandlerContext implements ChannelHandlerContext, R
     }
 
     private void invokeChannelActive() {
+        // 判断是否符合的 ChannelHandler
         if (invokeHandler()) {
             try {
+                // 调用该 ChannelHandler 的 Channel active 方法
+                //如果在channelActive()方法中不继续调用ctx.fireChannelActive();那么事件将停止传播
                 ((ChannelInboundHandler) handler()).channelActive(this);
             } catch (Throwable t) {
+                //如果发生异常，则调用 #notifyHandlerException(Throwable) 方法，通知 Inbound 事件的传播，发生异常
                 notifyHandlerException(t);
             }
         } else {
+            // 跳过，传播 Inbound 事件给下一个节点
             fireChannelActive();
         }
     }

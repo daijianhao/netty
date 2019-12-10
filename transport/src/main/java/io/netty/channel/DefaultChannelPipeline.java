@@ -1095,8 +1095,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         }
     }
 
+    /**
+     * 传播ChannelActive InBound事件
+     *
+     * @return
+     */
     @Override
     public final ChannelPipeline fireChannelActive() {
+        //InBound事件都是从head开始
         AbstractChannelHandlerContext.invokeChannelActive(head);
         return this;
     }
@@ -1459,8 +1465,14 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         public void channelUnregistered(ChannelHandlerContext ctx) {
         }
 
+        /**
+         * 如果channelActive事件传播到tail，由此方法处理
+         *
+         * @param ctx
+         */
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            //此处为空实现
             onUnhandledInboundChannelActive();
         }
 
@@ -1575,6 +1587,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void read(ChannelHandlerContext ctx) {
+            //由Head的unsafe完成read事件处理
             unsafe.beginRead();
         }
 
@@ -1611,8 +1624,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         public void channelActive(ChannelHandlerContext ctx) {
+            // 传播 Channel active 事件给下一个 Inbound 节点，都是异步进行的
             ctx.fireChannelActive();
-
+            // 执行 read 逻辑
             readIfIsAutoRead();
         }
 
@@ -1635,6 +1649,8 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         private void readIfIsAutoRead() {
             if (channel.config().isAutoRead()) {
+                //该方法内部，会调用 Channel#read() 方法，而后通过 pipeline 传递该 read OutBound 事件，最终
+                // 调用 HeadContext#read() 方法，最后有unsafe完成read()
                 channel.read();
             }
         }

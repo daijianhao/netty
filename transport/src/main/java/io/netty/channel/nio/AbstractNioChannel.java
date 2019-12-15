@@ -169,6 +169,8 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         if (isRegistered()) {
             EventLoop eventLoop = eventLoop();
             if (eventLoop.inEventLoop()) {
+                //最终的结果，是在 EventLoop 的线程中，调用 AbstractNioUnsafe#clearReadPending0() 方法，移除对“读”事件的
+                // 感兴趣( 对于 NioServerSocketChannel 的 “读“事件就是 SelectionKey.OP_ACCEPT )
                 clearReadPending0();
             } else {
                 eventLoop.execute(clearReadPendingRunnable);

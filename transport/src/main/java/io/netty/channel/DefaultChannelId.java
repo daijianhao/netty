@@ -146,7 +146,7 @@ public final class DefaultChannelId implements ChannelId {
 
         if (pid < 0) {
             pid = PlatformDependent.threadLocalRandom().nextInt();
-            logger.warn("Failed to find the current process ID from '{}'; using a random value: {}",  value, pid);
+            logger.warn("Failed to find the current process ID from '{}'; using a random value: {}", value, pid);
         }
 
         return pid;
@@ -184,25 +184,30 @@ public final class DefaultChannelId implements ChannelId {
     }
 
     private int writeInt(int i, int value) {
-        data[i ++] = (byte) (value >>> 24);
-        data[i ++] = (byte) (value >>> 16);
-        data[i ++] = (byte) (value >>> 8);
-        data[i ++] = (byte) value;
+        data[i++] = (byte) (value >>> 24);
+        data[i++] = (byte) (value >>> 16);
+        data[i++] = (byte) (value >>> 8);
+        data[i++] = (byte) value;
         return i;
     }
 
     private int writeLong(int i, long value) {
-        data[i ++] = (byte) (value >>> 56);
-        data[i ++] = (byte) (value >>> 48);
-        data[i ++] = (byte) (value >>> 40);
-        data[i ++] = (byte) (value >>> 32);
-        data[i ++] = (byte) (value >>> 24);
-        data[i ++] = (byte) (value >>> 16);
-        data[i ++] = (byte) (value >>> 8);
-        data[i ++] = (byte) value;
+        data[i++] = (byte) (value >>> 56);
+        data[i++] = (byte) (value >>> 48);
+        data[i++] = (byte) (value >>> 40);
+        data[i++] = (byte) (value >>> 32);
+        data[i++] = (byte) (value >>> 24);
+        data[i++] = (byte) (value >>> 16);
+        data[i++] = (byte) (value >>> 8);
+        data[i++] = (byte) value;
         return i;
     }
 
+    /**
+     * 仅使用最后 4 字节的随机数字，并转换成 16 进制的数字字符串。也因此，短，但是全局非唯一。
+     *
+     * @return
+     */
     @Override
     public String asShortText() {
         String shortValue = this.shortValue;
@@ -221,15 +226,21 @@ public final class DefaultChannelId implements ChannelId {
         return longValue;
     }
 
+    /**
+     * asLongText() 方法，通过调用 #newLongValue() 方法生成
+     *
+     * @return
+     */
     private String newLongValue() {
-        StringBuilder buf = new StringBuilder(2 * data.length + 5);
+        StringBuilder buf = new StringBuilder(2 * data.length + 5);// + 5 的原因是有 5 个 '-'
         int i = 0;
-        i = appendHexDumpField(buf, i, MACHINE_ID.length);
-        i = appendHexDumpField(buf, i, PROCESS_ID_LEN);
-        i = appendHexDumpField(buf, i, SEQUENCE_LEN);
-        i = appendHexDumpField(buf, i, TIMESTAMP_LEN);
-        i = appendHexDumpField(buf, i, RANDOM_LEN);
+        i = appendHexDumpField(buf, i, MACHINE_ID.length);// MAC 地址
+        i = appendHexDumpField(buf, i, PROCESS_ID_LEN);// 进程 ID 。4 字节
+        i = appendHexDumpField(buf, i, SEQUENCE_LEN);// 32 位数字，顺序增长
+        i = appendHexDumpField(buf, i, TIMESTAMP_LEN);// 时间戳
+        i = appendHexDumpField(buf, i, RANDOM_LEN);// 32 位数字
         assert i == data.length;
+        //最终也是 16 进制的数字。也因此，长，但是全局唯一。
         return buf.substring(0, buf.length() - 1);
     }
 

@@ -28,7 +28,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A special {@link ChannelInboundHandler} which offers an easy way to initialize a {@link Channel} once it was
  * registered to its {@link EventLoop}.
- *
+ * <p>
  * Implementations are most often used in the context of {@link Bootstrap#handler(ChannelHandler)} ,
  * {@link ServerBootstrap#handler(ChannelHandler)} and {@link ServerBootstrap#childHandler(ChannelHandler)} to
  * setup the {@link ChannelPipeline} of a {@link Channel}.
@@ -48,7 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * </pre>
  * Be aware that this class is marked as {@link Sharable} and so the implementation must be safe to be re-used.
  *
- * @param <C>   A sub-type of {@link Channel}
+ * @param <C> A sub-type of {@link Channel}
  */
 @Sharable
 public abstract class ChannelInitializer<C extends Channel> extends ChannelInboundHandlerAdapter {
@@ -63,10 +63,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      * This method will be called once the {@link Channel} was registered. After the method returns this instance
      * will be removed from the {@link ChannelPipeline} of the {@link Channel}.
      *
-     * @param ch            the {@link Channel} which was registered.
-     * @throws Exception    is thrown if an error occurs. In that case it will be handled by
-     *                      {@link #exceptionCaught(ChannelHandlerContext, Throwable)} which will by default close
-     *                      the {@link Channel}.
+     * @param ch the {@link Channel} which was registered.
+     * @throws Exception is thrown if an error occurs. In that case it will be handled by
+     *                   {@link #exceptionCaught(ChannelHandlerContext, Throwable)} which will by default close
+     *                   the {@link Channel}.
      */
     protected abstract void initChannel(C ch) throws Exception;
 
@@ -105,6 +105,7 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         if (ctx.channel().isRegistered()) {
+            //当当前channel被注册到了EventLoop上时会执行
             // This should always be true with our current DefaultChannelPipeline implementation.
             // The good thing about calling initChannel(...) in handlerAdded(...) is that there will be no ordering
             // surprises if a ChannelInitializer will add another ChannelInitializer. This is as all handlers

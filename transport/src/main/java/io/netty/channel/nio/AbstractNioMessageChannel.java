@@ -31,6 +31,8 @@ import java.util.List;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on messages.
+ * <p>
+ * 有Message为服务端使用
  */
 public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
     boolean inputShutdown;
@@ -55,8 +57,14 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         super.doBeginRead();
     }
 
+    /**
+     * NioMessageUnsafe 只有一个 #read() 方法，而该方法，“读取”新的客户端连接连入
+     */
     private final class NioMessageUnsafe extends AbstractNioUnsafe {
 
+        /**
+         * 新读取的客户端连接数组
+         */
         private final List<Object> readBuf = new ArrayList<Object>();
 
         @Override
@@ -64,7 +72,9 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             assert eventLoop().inEventLoop();
             final ChannelConfig config = config();
             final ChannelPipeline pipeline = pipeline();
+            // 获得 RecvByteBufAllocator.Handle 对象
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+            // 重置 RecvByteBufAllocator.Handle 对象
             allocHandle.reset(config);
 
             boolean closed = false;
@@ -72,33 +82,50 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
-                        int localRead = doReadMessages(readBuf);
+                        // 读取客户端的连接到 readBuf 中
+                        int localRead = doReadMessages(readBuf);//当OP是Accept时，这里最多接受一个客户端的连接
+                        // 无可读取的客户端的连接，结束
                         if (localRead == 0) {
                             break;
                         }
+                        // 读取出错
                         if (localRead < 0) {
                             closed = true;
                             break;
                         }
-
+                        // 读取消息数量 + localRead
                         allocHandle.incMessagesRead(localRead);
-                    } while (allocHandle.continueReading());
+                        //判断是否循环是否继续，读取( 接受 )新的客户端连接
+                    } while (allocHandle.continueReading());// 循环判断是否继续读取
                 } catch (Throwable t) {
+                    // 记录异常
                     exception = t;
                 }
-
+                // 循环 readBuf 数组，触发 Channel read 事件到 pipeline 中。
                 int size = readBuf.size();
-                for (int i = 0; i < size; i ++) {
+                for (int i = 0; i < size; i++) {
                     readPending = false;
+                    // 在内部，会通过 ServerBootstrapAcceptor ，将客户端的 Netty NioSocketChannel 注册到 EventLoop 上
+                    // 注意，传入的方法参数是新接受的客户端 NioSocketChannel 连接
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
+                // 清空 readBuf 数组
                 readBuf.clear();
+                // 读取完成
                 allocHandle.readComplete();
+                // 触发 Channel readComplete 事件到 pipeline 中。
+                // 如果有需要，胖友可以自定义处理器，处理该事件。一般情况下，不需要。
+                //如果没有自定义 ChannelHandler 进行处理，最终会被 pipeline 中的尾节点 TailContext 所处理
                 pipeline.fireChannelReadComplete();
 
+                // 发生异常
                 if (exception != null) {
+                    // 判断是否要关闭 TODO 芋艿
                     closed = closeOnReadError(exception);
 
+                    // 触发 exceptionCaught 事件到 pipeline 中。
+                    // 默认情况下，会使用 ServerBootstrapAcceptor 处理该事件
+                    // 如果有需要，胖友可以自定义处理器，处理该事件。一般情况下，不需要
                     pipeline.fireExceptionCaught(exception);
                 }
 
@@ -127,7 +154,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         final SelectionKey key = selectionKey();
         final int interestOps = key.interestOps();
 
-        for (;;) {
+        for (; ; ) {
             Object msg = in.current();
             if (msg == null) {
                 // Wrote all messages.
@@ -189,6 +216,8 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
 
     /**
      * Read messages into the given array and return the amount which was read.
+     * <p>
+     * 读取客户端的连接到方法参数 buf 中。它是一个抽象方法，定义在 AbstractNioMessageChannel 抽象类中
      */
     protected abstract int doReadMessages(List<Object> buf) throws Exception;
 

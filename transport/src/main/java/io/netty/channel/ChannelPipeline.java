@@ -216,7 +216,7 @@ import java.util.NoSuchElementException;
  * ChannelPipeline 为 ChannelHandler 的链，提供了一个容器并定义了用于沿着链传播入站和出站事件流的 API 。一个数据或者事件可能会
  * 被多个 Handler 处理，在这个过程中，数据或者事件经流 ChannelPipeline ，由 ChannelHandler 处理。在这个处理过程中，一个
  * ChannelHandler 接收数据后处理完成后交给下一个 ChannelHandler，或者什么都不做直接交给下一个 ChannelHandler。
- *
+ * <p>
  * 有可能会疑惑为什么继承 Iterable 接口？因为 ChannelPipeline 是 ChannelHandler 的链。
  */
 public interface ChannelPipeline
@@ -533,6 +533,7 @@ public interface ChannelPipeline
 
 
     // ========== Channel 相关 ==========
+
     /**
      * Returns the {@link Channel} that this pipeline is attached to.
      *

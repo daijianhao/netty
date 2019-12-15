@@ -73,16 +73,34 @@ import java.net.SocketAddress;
  * It is important to call {@link #close()} or {@link #close(ChannelPromise)} to release all
  * resources once you are done with the {@link Channel}. This ensures all resources are
  * released in a proper way, i.e. filehandles.
+ * <p>
+ * <p>
+ * 一个正常结束的 Channel 状态转移有两种情况：
+ * <p>
+ * 服务端用于绑定( bind )的 Channel 、或者客户端发起连接( connect )的 Channel:
+ *      REGISTERED -> CONNECT/BIND -> ACTIVE -> CLOSE -> INACTIVE -> UNREGISTERED
+ * <p>
+ * 服务端接受( accept )客户端的 Channel:
+ *      REGISTERED -> ACTIVE -> CLOSE -> INACTIVE -> UNREGISTERED
+ * <p>
+ * 一个异常关闭的 Channel 状态转移不符合上面的。
+ *
+ *
+ * 我们会发现 Channel 重写 ChannelOutboundInvoker 这两个接口的原因是：将返回值从 ChannelOutboundInvoker 修改成 Channel 。
+ *
+ * 我们看到除了 #read() 和 #flush() 方法，其它方法的返回值的类型都是 ChannelFuture ，这表明这些操作是异步 IO 的过程
  */
 public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparable<Channel> {
 
     /**
      * Returns the globally unique identifier of this {@link Channel}.
+     * Channel 的编号
      */
     ChannelId id();
 
     /**
      * Return the {@link EventLoop} this {@link Channel} was registered to.
+     * Channel 注册到的 EventLoop
      */
     EventLoop eventLoop();
 
@@ -90,26 +108,37 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * Returns the parent of this channel.
      *
      * @return the parent channel.
-     *         {@code null} if this channel does not have a parent channel.
+     * {@code null} if this channel does not have a parent channel.
+     * 父 Channel 对象
      */
     Channel parent();
 
     /**
      * Returns the configuration of this channel.
+     * Channel 配置参数
      */
     ChannelConfig config();
 
     /**
+     * Channel 是否打开。
+     * <p>
+     * true 表示 Channel 可用
+     * false 表示 Channel 已关闭，不可用
+     * <p>
      * Returns {@code true} if the {@link Channel} is open and may get active later
      */
     boolean isOpen();
 
     /**
+     * Channel 是否注册
+     * <p>
      * Returns {@code true} if the {@link Channel} is registered with an {@link EventLoop}.
      */
     boolean isRegistered();
 
     /**
+     * Channel 是否激活
+     * <p>
      * Return {@code true} if the {@link Channel} is active and so connected.
      */
     boolean isActive();
@@ -124,9 +153,11 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * {@link SocketAddress} is supposed to be down-cast into more concrete
      * type such as {@link InetSocketAddress} to retrieve the detailed
      * information.
+     * <p>
+     * 本地地址
      *
      * @return the local address of this channel.
-     *         {@code null} if this channel is not bound.
+     * {@code null} if this channel is not bound.
      */
     SocketAddress localAddress();
 
@@ -135,20 +166,24 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * returned {@link SocketAddress} is supposed to be down-cast into more
      * concrete type such as {@link InetSocketAddress} to retrieve the detailed
      * information.
+     * <p>
+     * 远端地址
      *
      * @return the remote address of this channel.
-     *         {@code null} if this channel is not connected.
-     *         If this channel is not connected but it can receive messages
-     *         from arbitrary remote addresses (e.g. {@link DatagramChannel},
-     *         use {@link DatagramPacket#recipient()} to determine
-     *         the origination of the received message as this method will
-     *         return {@code null}.
+     * {@code null} if this channel is not connected.
+     * If this channel is not connected but it can receive messages
+     * from arbitrary remote addresses (e.g. {@link DatagramChannel},
+     * use {@link DatagramPacket#recipient()} to determine
+     * the origination of the received message as this method will
+     * return {@code null}.
      */
     SocketAddress remoteAddress();
 
     /**
      * Returns the {@link ChannelFuture} which will be notified when this
      * channel is closed.  This method always returns the same future instance.
+     *
+     * Channel 关闭的 Future 对象
      */
     ChannelFuture closeFuture();
 
@@ -157,39 +192,56 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      * requested write operation immediately.  Any write requests made when
      * this method returns {@code false} are queued until the I/O thread is
      * ready to process the queued write requests.
+     * <p>
+     * Channel 是否可写
      */
     boolean isWritable();
 
     /**
      * Get how many bytes can be written until {@link #isWritable()} returns {@code false}.
      * This quantity will always be non-negative. If {@link #isWritable()} is {@code false} then 0.
+     * <p>
+     * 获得距离不可写还有多少字节数
      */
     long bytesBeforeUnwritable();
 
     /**
      * Get how many bytes must be drained from underlying buffers until {@link #isWritable()} returns {@code true}.
      * This quantity will always be non-negative. If {@link #isWritable()} is {@code true} then 0.
+     * <p>
+     * 获得距离可写还要多少字节数
      */
     long bytesBeforeWritable();
 
     /**
      * Returns an <em>internal-use-only</em> object that provides unsafe operations.
+     * Unsafe 对象
      */
     Unsafe unsafe();
 
     /**
      * Return the assigned {@link ChannelPipeline}.
+     * ChannelPipeline 对象，用于处理 Inbound 和 Outbound 事件的处理
      */
     ChannelPipeline pipeline();
 
     /**
      * Return the assigned {@link ByteBufAllocator} which will be used to allocate {@link ByteBuf}s.
+     * ByteBuf 分配器
      */
     ByteBufAllocator alloc();
 
+    /**
+     * 继承自 ChannelOutboundInvoker 接口
+     * @return
+     */
     @Override
     Channel read();
 
+    /**
+     * 继承自 ChannelOutboundInvoker 接口
+     * @return
+     */
     @Override
     Channel flush();
 
@@ -205,24 +257,30 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      *   <li>{@link #deregister(ChannelPromise)}</li>
      *   <li>{@link #voidPromise()}</li>
      * </ul>
+     *
+     * Unsafe 直译中文为“不安全”，就是告诉我们，无需且不必要在我们使用 Netty 的代码中，不能直接调用 Unsafe 相关的方法
+     * 我们会发现，对于 Channel 和 Unsafe 来说，类名中包含 Byte 是属于客户端的，Message 是属于服务端的。
      */
     interface Unsafe {
 
         /**
          * Return the assigned {@link RecvByteBufAllocator.Handle} which will be used to allocate {@link ByteBuf}'s when
          * receiving data.
+         * ByteBuf 分配器的处理器
          */
         RecvByteBufAllocator.Handle recvBufAllocHandle();
 
         /**
          * Return the {@link SocketAddress} to which is bound local or
          * {@code null} if none.
+         * 本地地址
          */
         SocketAddress localAddress();
 
         /**
          * Return the {@link SocketAddress} to which is bound remote or
          * {@code null} if none is bound yet.
+         * 远端地址
          */
         SocketAddress remoteAddress();
 
@@ -242,7 +300,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
          * Connect the {@link Channel} of the given {@link ChannelFuture} with the given remote {@link SocketAddress}.
          * If a specific local {@link SocketAddress} should be used it need to be given as argument. Otherwise just
          * pass {@code null} to it.
-         *
+         * <p>
          * The {@link ChannelPromise} will get notified once the connect operation was complete.
          */
         void connect(SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise);

@@ -39,6 +39,8 @@ import static io.netty.channel.internal.ChannelUtils.WRITE_STATUS_SNDBUF_FULL;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on bytes.
+ *
+ * 有Byte为客户端使用
  */
 public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);

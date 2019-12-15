@@ -368,7 +368,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
      * be executed by this event loop when the {@link SelectableChannel} is ready.
      * <p>
      * 注册 Java NIO Channel ( 不一定需要通过 Netty 创建的 Channel )到 Selector 上，相当于说，也注册到了 EventLoop 上
-     *
+     * <p>
      * 这里我们可以看到，attachment 为 NioTask 对象，而不是 Netty Channel 对象。
      */
     public void register(final SelectableChannel ch, final int interestOps, final NioTask<?> task) {
@@ -855,7 +855,10 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // to a spin loop
             // SelectionKey.OP_READ 或 SelectionKey.OP_ACCEPT 就绪,处理读或者者接受客户端连接的事件。
             // readyOps == 0 是对 JDK Bug 的处理，防止空的死循环
+            //当 (readyOps & SelectionKey.OP_ACCEPT) != 0 时，这就是服务端 NioServerSocketChannel 的 boss EventLoop 线程轮
+            // 询到有新的客户端连接接入。
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
+                //如果是服务端，则调用 NioMessageUnsafe#read() 方法，“读取”( 😈 这个抽象很灵性 )新的客户端连接连入
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {
@@ -865,6 +868,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * 使用 NioTask ，自定义实现 Channel 处理 Channel IO 就绪的事件
+     *
      * @param k
      * @param task
      */
@@ -921,6 +925,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
 
     /**
      * 执行 Channel 取消注册
+     *
      * @param task
      * @param k
      * @param cause

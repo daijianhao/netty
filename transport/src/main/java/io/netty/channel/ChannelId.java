@@ -42,15 +42,22 @@ import java.io.Serializable;
  * <li>{@code io.netty.processId} - an integer between 0 and 65535</li>
  * </ul>
  * </p>
+ *
+ * 实现 Serializable、Comparable 接口，Channel 编号接口
  */
 public interface ChannelId extends Serializable, Comparable<ChannelId> {
     /**
      * Returns the short but globally non-unique string representation of the {@link ChannelId}.
+     * 全局非唯一
+     *
+     * 返回的编号，短，但是全局非唯一。
      */
     String asShortText();
 
     /**
      * Returns the long yet globally unique string representation of the {@link ChannelId}.
+     * 全局唯一
+     * 返回的编号，长，但是全局唯一。
      */
     String asLongText();
 }

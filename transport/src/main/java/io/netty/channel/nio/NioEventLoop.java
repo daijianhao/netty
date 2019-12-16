@@ -859,6 +859,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
             // 询到有新的客户端连接接入。
             if ((readyOps & (SelectionKey.OP_READ | SelectionKey.OP_ACCEPT)) != 0 || readyOps == 0) {
                 //如果是服务端，则调用 NioMessageUnsafe#read() 方法，“读取”( 😈 这个抽象很灵性 )新的客户端连接连入
+                //如果是NioSocketchannel就会调用NioByteUnsafed#read()方法，读取客户端传来的数据
                 unsafe.read();
             }
         } catch (CancelledKeyException ignored) {

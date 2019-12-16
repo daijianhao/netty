@@ -39,14 +39,14 @@ import static io.netty.channel.internal.ChannelUtils.WRITE_STATUS_SNDBUF_FULL;
 
 /**
  * {@link AbstractNioChannel} base class for {@link Channel}s that operate on bytes.
- *
+ * <p>
  * 有Byte为客户端使用
  */
 public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
     private static final String EXPECTED_TYPES =
             " (expected: " + StringUtil.simpleClassName(ByteBuf.class) + ", " +
-            StringUtil.simpleClassName(FileRegion.class) + ')';
+                    StringUtil.simpleClassName(FileRegion.class) + ')';
 
     private final Runnable flushTask = new Runnable() {
         @Override
@@ -61,8 +61,8 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     /**
      * Create a new instance
      *
-     * @param parent            the parent {@link Channel} by which this instance was created. May be {@code null}
-     * @param ch                the underlying {@link SelectableChannel} on which it operates
+     * @param parent the parent {@link Channel} by which this instance was created. May be {@code null}
+     * @param ch     the underlying {@link SelectableChannel} on which it operates
      */
     protected AbstractNioByteChannel(Channel parent, SelectableChannel ch) {
         super(parent, ch, SelectionKey.OP_READ);
@@ -96,6 +96,10 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                 ((SocketChannelConfig) config).isAllowHalfClosure();
     }
 
+    /**
+     * 实现 AbstractNioUnsafe 抽象类，AbstractNioByteChannel 的 Unsafe 实现类
+     * 负责从客户端的NioSocketChannel读取数据
+     */
     protected class NioByteUnsafe extends AbstractNioUnsafe {
 
         private void closeOnRead(ChannelPipeline pipeline) {
@@ -113,17 +117,22 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         }
 
         private void handleReadException(ChannelPipeline pipeline, ByteBuf byteBuf, Throwable cause, boolean close,
-                RecvByteBufAllocator.Handle allocHandle) {
-            if (byteBuf != null) {
-                if (byteBuf.isReadable()) {
+                                         RecvByteBufAllocator.Handle allocHandle) {
+            if (byteBuf != null) {//byteBuf 非空，说明在发生异常之前，至少申请 ByteBuf 对象是成功的
+                if (byteBuf.isReadable()) {//判断 ByteBuf 对象是否可读，即剩余可读的字节数据
                     readPending = false;
+                    // 触发 Channel read 事件到 pipeline 中。
                     pipeline.fireChannelRead(byteBuf);
                 } else {
+                    // 释放 ByteBuf 对象
                     byteBuf.release();
                 }
             }
+            // 读取完成
             allocHandle.readComplete();
+            // 触发 Channel readComplete 事件到 pipeline 中
             pipeline.fireChannelReadComplete();
+            // 触发 exceptionCaught 事件到 pipeline 中。
             pipeline.fireExceptionCaught(cause);
             if (close || cause instanceof IOException) {
                 closeOnRead(pipeline);
@@ -133,42 +142,56 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         @Override
         public final void read() {
             final ChannelConfig config = config();
+            // 若 inputClosedSeenErrorOnRead = true ，移除对 SelectionKey.OP_READ 事件的感兴趣。
             if (shouldBreakReadReady(config)) {
                 clearReadPending();
                 return;
             }
             final ChannelPipeline pipeline = pipeline();
             final ByteBufAllocator allocator = config.getAllocator();
+            // 获得 RecvByteBufAllocator.Handle 对象
             final RecvByteBufAllocator.Handle allocHandle = recvBufAllocHandle();
+            // 重置 RecvByteBufAllocator.Handle 对象
             allocHandle.reset(config);
 
             ByteBuf byteBuf = null;
             boolean close = false;
             try {
                 do {
+                    // 申请 ByteBuf 对象
                     byteBuf = allocHandle.allocate(allocator);
+                    // 读取数据
+                    // 设置最后读取字节数
                     allocHandle.lastBytesRead(doReadBytes(byteBuf));
+                    // <1> 未读取到数据
                     if (allocHandle.lastBytesRead() <= 0) {
                         // nothing was read. release the buffer.
+                        // 释放 ByteBuf 对象
                         byteBuf.release();
+                        // 置空 ByteBuf 对象
                         byteBuf = null;
+                        // 如果最后读取的字节为小于 0 ，说明对端已经关闭
                         close = allocHandle.lastBytesRead() < 0;
                         if (close) {
                             // There is nothing left to read as we received an EOF.
                             readPending = false;
                         }
+                        // 结束循环
                         break;
                     }
-
+                    // 读取消息数量 + localRead
                     allocHandle.incMessagesRead(1);
                     readPending = false;
+                    // 触发 Channel read 事件到 pipeline 中
+                    //如果没有自定义 ChannelHandler 进行处理，最终会被 pipeline 中的尾节点 TailContext 所处理
                     pipeline.fireChannelRead(byteBuf);
                     byteBuf = null;
-                } while (allocHandle.continueReading());
-
+                } while (allocHandle.continueReading());//判断是否循环是否继续，读取新的数据
+                // 读取完成
                 allocHandle.readComplete();
+                // 触发 Channel readComplete 事件到 pipeline 中
                 pipeline.fireChannelReadComplete();
-
+                // 关闭客户端的连接
                 if (close) {
                     closeOnRead(pipeline);
                 }
@@ -190,6 +213,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     /**
      * Write objects to the OS.
+     *
      * @param in the collection which contains objects to write.
      * @return The value that should be decremented from the write quantum which starts at
      * {@link ChannelConfig#getWriteSpinCount()}. The typical use cases are as follows:
@@ -304,19 +328,25 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
     /**
      * Write a {@link FileRegion}
      *
-     * @param region        the {@link FileRegion} from which the bytes should be written
+     * @param region the {@link FileRegion} from which the bytes should be written
      * @return amount       the amount of written bytes
      */
     protected abstract long doWriteFileRegion(FileRegion region) throws Exception;
 
     /**
      * Read bytes into the given {@link ByteBuf} and return the amount.
+     *
+     * 读取写入的数据到方法参数 buf 中。它是一个抽象方法
+     *
+     * 返回值为读取到的字节数。
+     * 当返回值小于 0 时，表示对端已经关闭。
      */
     protected abstract int doReadBytes(ByteBuf buf) throws Exception;
 
     /**
      * Write bytes form the given {@link ByteBuf} to the underlying {@link java.nio.channels.Channel}.
-     * @param buf           the {@link ByteBuf} from which the bytes should be written
+     *
+     * @param buf the {@link ByteBuf} from which the bytes should be written
      * @return amount       the amount of written bytes
      */
     protected abstract int doWriteBytes(ByteBuf buf) throws Exception;

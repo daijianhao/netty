@@ -285,6 +285,9 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         index = idx(index);
         tmpBuf.clear().position(index).limit(index + length);
         try {
+            //会调用 Java NIO 的 ScatteringByteChannel#read(ByteBuffer) 方法，读取数据到临时的 Java NIO ByteBuffer 中
+            //在对端未断开时，返回的是读取数据的字节数。
+            //在对端已断开时，返回 -1 ，表示断开
             return in.read(tmpBuf);
         } catch (ClosedChannelException ignored) {
             return -1;
@@ -316,7 +319,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     @Override
     public ByteBuffer[] nioBuffers(int index, int length) {
-        return new ByteBuffer[] { nioBuffer(index, length) };
+        return new ByteBuffer[]{nioBuffer(index, length)};
     }
 
     @Override

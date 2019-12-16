@@ -161,7 +161,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
                 logger.warn("Failed to close a socket.", t2);
             }
         }
-        返回 0 ，表示成功接受 0 个新的客户端连接
+        //返回 0 ，表示成功接受 0 个新的客户端连接
         return 0;
     }
 

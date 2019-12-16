@@ -51,14 +51,14 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
 
     /**
      * Determine if future instances of {@link #newHandle()} will stop reading if we think there is no more data.
-     * @param respectMaybeMoreData
-     * <ul>
-     *     <li>{@code true} to stop reading if we think there is no more data. This may save a system call to read from
-     *          the socket, but if data has arrived in a racy fashion we may give up our {@link #maxMessagesPerRead()}
-     *          quantum and have to wait for the selector to notify us of more data.</li>
-     *     <li>{@code false} to keep reading (up to {@link #maxMessagesPerRead()}) or until there is no data when we
-     *          attempt to read.</li>
-     * </ul>
+     *
+     * @param respectMaybeMoreData <ul>
+     *                             <li>{@code true} to stop reading if we think there is no more data. This may save a system call to read from
+     *                             the socket, but if data has arrived in a racy fashion we may give up our {@link #maxMessagesPerRead()}
+     *                             quantum and have to wait for the selector to notify us of more data.</li>
+     *                             <li>{@code false} to keep reading (up to {@link #maxMessagesPerRead()}) or until there is no data when we
+     *                             attempt to read.</li>
+     *                             </ul>
      * @return {@code this}.
      */
     public DefaultMaxMessagesRecvByteBufAllocator respectMaybeMoreData(boolean respectMaybeMoreData) {
@@ -68,13 +68,13 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
 
     /**
      * Get if future instances of {@link #newHandle()} will stop reading if we think there is no more data.
-     * @return
-     * <ul>
-     *     <li>{@code true} to stop reading if we think there is no more data. This may save a system call to read from
-     *          the socket, but if data has arrived in a racy fashion we may give up our {@link #maxMessagesPerRead()}
-     *          quantum and have to wait for the selector to notify us of more data.</li>
-     *     <li>{@code false} to keep reading (up to {@link #maxMessagesPerRead()}) or until there is no data when we
-     *          attempt to read.</li>
+     *
+     * @return <ul>
+     * <li>{@code true} to stop reading if we think there is no more data. This may save a system call to read from
+     * the socket, but if data has arrived in a racy fashion we may give up our {@link #maxMessagesPerRead()}
+     * quantum and have to wait for the selector to notify us of more data.</li>
+     * <li>{@code false} to keep reading (up to {@link #maxMessagesPerRead()}) or until there is no data when we
+     * attempt to read.</li>
      * </ul>
      */
     public final boolean respectMaybeMoreData() {
@@ -121,9 +121,10 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
 
         @Override
         public void lastBytesRead(int bytes) {
+            // 设置最后一次读取字节数
             lastBytesRead = bytes;
             if (bytes > 0) {
-                totalBytesRead += bytes;
+                totalBytesRead += bytes;// 总共读取字节数
             }
         }
 
@@ -140,9 +141,10 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
         @Override
         public boolean continueReading(UncheckedBooleanSupplier maybeMoreDataSupplier) {
             return config.isAutoRead() &&
-                   (!respectMaybeMoreData || maybeMoreDataSupplier.get()) &&
-                   totalMessages < maxMessagePerRead &&
-                   totalBytesRead > 0;//此时 totalBytesRead 等于 0 ，所以会返回 false 。因此，循环会结束。也因此，
+                    (!respectMaybeMoreData || maybeMoreDataSupplier.get()) &&//<1>
+                    totalMessages < maxMessagePerRead &&//一般情况下，最后读取的字节数，不等于最大可写入的字节数，即 <1> 处的代
+                    // 码 UncheckedBooleanSupplier#get() 返回 false ，则不再进行数据读取。因为 😈 也没有数据可以读取啦。
+                    totalBytesRead > 0;//当为NioServerSocketCHannel时 totalBytesRead 等于 0 ，所以会返回 false 。因此，循环会结束。也因此，
             // 对于 NioServerSocketChannel 来说，每次只接受一个新的客户端连接。😈 当然，因为服务端 NioServerSocketChannel
             // 对 Selectionkey.OP_ACCEPT 事件感兴趣，所以后续的新的客户端连接还是会被接受的。
         }

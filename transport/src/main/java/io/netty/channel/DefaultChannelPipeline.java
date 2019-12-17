@@ -189,6 +189,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return handle;
     }
 
+    /**
+     * 记录 Record 记录  todo
+     * @param msg
+     * @param next
+     * @return
+     */
     final Object touch(Object msg, AbstractChannelHandlerContext next) {
         return touch ? ReferenceCountUtil.touch(msg, next) : msg;
     }
@@ -1217,6 +1223,11 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+    /**
+     * 会调用 TailContext#write(Object msg, ...) 方法，将 write 事件在 pipeline 中，从尾节点向头节点传播
+     * @param msg
+     * @return
+     */
     @Override
     public final ChannelFuture write(Object msg) {
         return tail.write(msg);
@@ -1433,6 +1444,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     protected void incrementPendingOutboundBytes(long size) {
         ChannelOutboundBuffer buffer = channel.unsafe().outboundBuffer();
         if (buffer != null) {
+            //增加 ChannelOutboundBuffer 的 totalPendingSize 属性
             buffer.incrementPendingOutboundBytes(size);
         }
     }
@@ -1441,6 +1453,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     protected void decrementPendingOutboundBytes(long size) {
         ChannelOutboundBuffer buffer = channel.unsafe().outboundBuffer();
         if (buffer != null) {
+            //减少 ChannelOutboundBuffer 的 totalPendingSize
             buffer.decrementPendingOutboundBytes(size);
         }
     }
@@ -1597,6 +1610,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             unsafe.beginRead();
         }
 
+        /**
+         * @param ctx     the {@link ChannelHandlerContext} for which the write operation is made
+         * @param msg     the message to write
+         * @param promise the {@link ChannelPromise} to notify once the operation completes
+         * 在方法内部，会调用 AbstractUnsafe#write(Object msg, ChannelPromise promise) 方法，将数据写到内存队列中
+         */
         @Override
         public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
             unsafe.write(msg, promise);

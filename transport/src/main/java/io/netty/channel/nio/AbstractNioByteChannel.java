@@ -292,19 +292,23 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     @Override
     protected final Object filterOutboundMessage(Object msg) {
+        //消息( 数据 )是 ByteBuf 类型，如果是非 Direct ByteBuf 对象，需要调用 #newDirectBuffer(ByteBuf) 方法，复制封
+        // 装成 Direct ByteBuf 对象。原因是：在使用 Socket 传递数据时性能很好，由于数据直接在内存中，不存在从 JVM 拷贝数
+        // 据到直接缓冲区的过程，性能好
         if (msg instanceof ByteBuf) {
             ByteBuf buf = (ByteBuf) msg;
+            // 已经是内存 ByteBuf
             if (buf.isDirect()) {
                 return msg;
             }
 
             return newDirectBuffer(buf);
         }
-
+        //消息( 数据 )是 FileRegion 类型，直接返回
         if (msg instanceof FileRegion) {
             return msg;
         }
-
+        //不支持其他数据类型
         throw new UnsupportedOperationException(
                 "unsupported message type: " + StringUtil.simpleClassName(msg) + EXPECTED_TYPES);
     }
@@ -335,9 +339,9 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
 
     /**
      * Read bytes into the given {@link ByteBuf} and return the amount.
-     *
+     * <p>
      * 读取写入的数据到方法参数 buf 中。它是一个抽象方法
-     *
+     * <p>
      * 返回值为读取到的字节数。
      * 当返回值小于 0 时，表示对端已经关闭。
      */

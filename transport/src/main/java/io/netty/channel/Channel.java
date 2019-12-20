@@ -84,10 +84,10 @@ import java.net.SocketAddress;
  *      REGISTERED -> ACTIVE -> CLOSE -> INACTIVE -> UNREGISTERED
  * <p>
  * 一个异常关闭的 Channel 状态转移不符合上面的。
- *
- *
+ * <p>
+ * <p>
  * 我们会发现 Channel 重写 ChannelOutboundInvoker 这两个接口的原因是：将返回值从 ChannelOutboundInvoker 修改成 Channel 。
- *
+ * <p>
  * 我们看到除了 #read() 和 #flush() 方法，其它方法的返回值的类型都是 ChannelFuture ，这表明这些操作是异步 IO 的过程
  */
 public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparable<Channel> {
@@ -182,7 +182,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
     /**
      * Returns the {@link ChannelFuture} which will be notified when this
      * channel is closed.  This method always returns the same future instance.
-     *
+     * <p>
      * Channel 关闭的 Future 对象
      */
     ChannelFuture closeFuture();
@@ -233,6 +233,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
     /**
      * 继承自 ChannelOutboundInvoker 接口
+     *
      * @return
      */
     @Override
@@ -240,10 +241,9 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
 
     /**
      * 继承自 ChannelOutboundInvoker 接口
-     * @return
      *
-     * 在本文中，我们会发现，#flush() 方法和 #write(Object msg, ...) 正常情况下，经历的流程是差不多的，例如在 pipeline 中对事件的传播，从 tail 节点传播到 head 节点，最终交由 Unsafe 处理，而差异点就是 Unsafe 的处理方式不同：
-     *
+     * @return 在本文中，我们会发现，#flush() 方法和 #write(Object msg, ...) 正常情况下，经历的流程是差不多的，例如在 pipeline 中对事件的传播，从 tail 节点传播到 head 节点，最终交由 Unsafe 处理，而差异点就是 Unsafe 的处理方式不同：
+     * <p>
      * write 方法：将数据写到内存队列中。
      * flush 方法：刷新内存队列，将其中的数据写入到对端。
      * 当然，上述描述仅仅指的是正常情况下，在异常情况下会有所不同。我们知道，Channel 大多数情况下是可写的，所以不需要专门
@@ -266,7 +266,7 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
      *   <li>{@link #deregister(ChannelPromise)}</li>
      *   <li>{@link #voidPromise()}</li>
      * </ul>
-     *
+     * <p>
      * Unsafe 直译中文为“不安全”，就是告诉我们，无需且不必要在我们使用 Netty 的代码中，不能直接调用 Unsafe 相关的方法
      * 我们会发现，对于 Channel 和 Unsafe 来说，类名中包含 Byte 是属于客户端的，Message 是属于服务端的。
      */
@@ -317,6 +317,11 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
         /**
          * Disconnect the {@link Channel} of the {@link ChannelFuture} and notify the {@link ChannelPromise} once the
          * operation was complete.
+         * <p>
+         * Java 原生 NIO SocketChannel 不存在disconnect()，
+         * 当调用 Netty NioSocketChannel#disconnect(ChannelPromise promise) 时，会自动转换成 close 操作
+         * <p>
+         * 实际上， Channel#disconnect(ChannelPromise promise) 方法，是 Netty 为 UDP 设计的
          */
         void disconnect(ChannelPromise promise);
 

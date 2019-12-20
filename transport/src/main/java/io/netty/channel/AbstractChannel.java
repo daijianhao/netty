@@ -233,8 +233,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         return pipeline.connect(remoteAddress, localAddress);
     }
 
+    /**
+     * 应用程序里可以主动关闭 NioSocketChannel 通道
+     */
     @Override
     public ChannelFuture disconnect() {
+        //在方法内部，会调用对应的 ChannelPipeline#disconnect() 方法，将 disconnect 事件在 pipeline 上传播
         return pipeline.disconnect();
     }
 

@@ -238,8 +238,15 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         return pipeline.disconnect();
     }
 
+    /**
+     * 应用程序里可以主动关闭 NioSocketChannel 通道
+     *
+     * @return
+     */
     @Override
     public ChannelFuture close() {
+        //在方法内部，会调用对应的 ChannelPipeline#close() 方法，将 close 事件在 pipeline 上传播。
+        // 而 close 事件属于 Outbound 事件，所以会从 tail 节点开始，最终传播到 head 节点，使用 Unsafe 进行关闭
         return pipeline.close();
     }
 
@@ -634,6 +641,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             closeIfClosed(); // doDisconnect() might have closed the channel
         }
 
+        /**
+         * 关闭连接
+         */
         @Override
         public final void close(final ChannelPromise promise) {
             assertEventLoop();
@@ -714,18 +724,27 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             pipeline.fireUserEventTriggered(ChannelOutputShutdownEvent.INSTANCE);
         }
 
+        /**
+         * 方法参数 cause、closeCause ，关闭的“原因”。对于 close 操作来说，无论是正常关闭，还是异常关闭，通过使用 Exception 来表
+         * 示来源。在 AbstractChannel 类中，枚举了所有来源
+         */
         private void close(final ChannelPromise promise, final Throwable cause,
                            final ClosedChannelException closeCause, final boolean notify) {
+            // 设置 Promise 不可取消
             if (!promise.setUncancellable()) {
                 return;
             }
 
+            // 表示关闭已经标记初始化，此时可能已经关闭完成
             if (closeInitiated) {
+                // 关闭已经完成，直接通知 Promise 对象
                 if (closeFuture.isDone()) {
                     // Closed already.
                     safeSetSuccess(promise);
                 } else if (!(promise instanceof VoidChannelPromise)) { // Only needed if no VoidChannelPromise.
+                    //关闭并未完成，通过监听器回调通知 Promise 对象
                     // This means close() was called before so we just register a listener and return
+                    // 关闭未完成，通过监听器通知 Promise 对象
                     closeFuture.addListener(new ChannelFutureListener() {
                         @Override
                         public void operationComplete(ChannelFuture future) throws Exception {
@@ -735,30 +754,40 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 }
                 return;
             }
-
+            // 标记关闭已经初始化
             closeInitiated = true;
 
+            // 获得 Channel 是否激活
             final boolean wasActive = isActive();
+            // 标记 outboundBuffer 为空
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             this.outboundBuffer = null; // Disallow adding any messages and flushes to outboundBuffer.
+            // 执行准备关闭
             Executor closeExecutor = prepareToClose();
-            if (closeExecutor != null) {
+            // 若 closeExecutor 非空
+            if (closeExecutor != null) {//在NioSocketChannelUnsafe#prepareToClose 中，我们已经看到如果开启 SO_LINGER 功能，会返回 GlobalEventExecutor.INSTANCE 对象
+                //这里为什么要在closeExecutor中执行关闭呢？参见prepareToClose()方法
                 closeExecutor.execute(new Runnable() {
                     @Override
                     public void run() {
                         try {
                             // Execute the close.
+                            // 在 closeExecutor 中，执行关闭
                             doClose0(promise);
                         } finally {
                             // Call invokeLater so closeAndDeregister is executed in the EventLoop again!
+                            // 在 EventLoop 中，执行
                             invokeLater(new Runnable() {
                                 @Override
                                 public void run() {
                                     if (outboundBuffer != null) {
                                         // Fail all the queued messages
+                                        // 写入数据( 消息 )到对端失败，通知相应数据对应的 Promise 失败。
                                         outboundBuffer.failFlushed(cause, notify);
+                                        // 关闭内存队列
                                         outboundBuffer.close(closeCause);
                                     }
+                                    // 执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                                     fireChannelInactiveAndDeregister(wasActive);
                                 }
                             });
@@ -766,16 +795,20 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     }
                 });
             } else {
+                // 若 closeExecutor 为空
                 try {
                     // Close the channel and fail the queued messages in all cases.
+                    // 执行关闭
                     doClose0(promise);
                 } finally {
                     if (outboundBuffer != null) {
                         // Fail all the queued messages.
+                        // 写入数据( 消息 )到对端失败，通知相应数据对应的 Promise 失败
                         outboundBuffer.failFlushed(cause, notify);
                         outboundBuffer.close(closeCause);
                     }
                 }
+                // 正在 flush 中，在 EventLoop 中执行执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                 if (inFlush0) {
                     invokeLater(new Runnable() {
                         @Override
@@ -784,31 +817,53 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         }
                     });
                 } else {
+                    // 不在 flush 中，直接执行执行取消注册，并触发 Channel Inactive 事件到 pipeline 中
                     fireChannelInactiveAndDeregister(wasActive);
                 }
             }
         }
 
+        /**
+         * 执行真正的关闭
+         * @param promise
+         */
         private void doClose0(ChannelPromise promise) {
             try {
+                // 执行关闭
+                // 执行关闭。这是一个抽象方法，NioSocketChannel 对它的实现
                 doClose();
+                // 通知 closeFuture 关闭完成
+                //此处就会结束我们在 EchoClient 的阻塞监听客户端关闭。例如：
+                //
+                // Wait until the connection is closed.
+                //  监听客户端关闭，并阻塞等待
+                //  f.channel().closeFuture().sync();
                 closeFuture.setClosed();
+                // 通知 Promise 关闭成功
                 safeSetSuccess(promise);
             } catch (Throwable t) {
+                // 通知 closeFuture 关闭完成
                 closeFuture.setClosed();
+                // 通知 Promise 关闭异常
                 safeSetFailure(promise, t);
             }
         }
 
         private void fireChannelInactiveAndDeregister(final boolean wasActive) {
-            deregister(voidPromise(), wasActive && !isActive());
+            deregister(voidPromise(), wasActive && !isActive());//判断是否 Channel 的状态是否从 Active 变成 Inactive
         }
 
+        /**
+         * 立即关闭 Channel ，并且不触发 pipeline 上的任何事件
+         *
+         * 仅仅用于 Channel 注册到 EventLoop 上失败的情况下。😈 这也就是为什么 without firing any events 的原因啦
+         */
         @Override
         public final void closeForcibly() {
             assertEventLoop();
 
             try {
+                //在方法内部，调用 AbstractNioChannel#doClose() 方法，执行 Java 原生 NIO SocketServerChannel 或 SocketChannel 关闭
                 doClose();
             } catch (Exception e) {
                 logger.warn("Failed to close a channel.", e);
@@ -823,10 +878,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         }
 
         private void deregister(final ChannelPromise promise, final boolean fireChannelInactive) {
+            // 设置 Promise 不可取消
             if (!promise.setUncancellable()) {
                 return;
             }
 
+            // 不处于已经注册状态，直接通知 Promise 取消注册成功。
             if (!registered) {
                 safeSetSuccess(promise);
                 return;
@@ -845,10 +902,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 @Override
                 public void run() {
                     try {
+                        // 执行取消注册
                         doDeregister();
                     } catch (Throwable t) {
                         logger.warn("Unexpected exception occurred while deregistering a channel.", t);
                     } finally {
+                        // 触发 Channel Inactive 事件到 pipeline 中
                         if (fireChannelInactive) {
                             pipeline.fireChannelInactive();
                         }
@@ -857,9 +916,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         // close() calls deregister() again - no need to fire channelUnregistered, so check
                         // if it was registered.
                         if (registered) {
+                            // 标记为未注册
                             registered = false;
+                            // 触发 Channel Unregistered 事件到 pipeline 中
                             pipeline.fireChannelUnregistered();
                         }
+                        // 通知 Promise 取消注册成功。
                         safeSetSuccess(promise);
                     }
                 }

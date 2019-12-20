@@ -56,6 +56,12 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             ((AbstractNioUnsafe) unsafe()).flush0();
         }
     };
+
+    /**
+     * 通道关闭读取，又错误读取的错误的标识
+     *
+     * 详细见 https://github.com/netty/netty/commit/ed0668384b393c3502c2136e3cc412a5c8c9056e 提交
+     */
     private boolean inputClosedSeenErrorOnRead;
 
     /**
@@ -91,6 +97,13 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
         return isInputShutdown0() && (inputClosedSeenErrorOnRead || !isAllowHalfClosure(config));
     }
 
+    /**
+     * 判断是否开启连接半关闭的功能
+     * 可通过 ALLOW_HALF_CLOSURE 配置项开启
+     * Netty 参数，一个连接的远端关闭时本地端是否关闭，默认值为 false 。
+     * 值为 false时，连接自动关闭。
+     * 值为 true 时，触发 ChannelInboundHandler 的#userEventTriggered() 方法，事件 ChannelInputShutdownEvent
+     */
     private static boolean isAllowHalfClosure(ChannelConfig config) {
         return config instanceof SocketChannelConfig &&
                 ((SocketChannelConfig) config).isAllowHalfClosure();
@@ -102,16 +115,27 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
      */
     protected class NioByteUnsafe extends AbstractNioUnsafe {
 
+        /**
+         * 关闭客户端
+         * @param pipeline
+         */
         private void closeOnRead(ChannelPipeline pipeline) {
             if (!isInputShutdown0()) {
+                // 开启连接半关闭
                 if (isAllowHalfClosure(config())) {
+                    // 关闭 Channel 数据的读取
                     shutdownInput();
+                    // 触发 ChannelInputShutdownEvent.INSTANCE 事件到 pipeline 中
                     pipeline.fireUserEventTriggered(ChannelInputShutdownEvent.INSTANCE);
                 } else {
                     close(voidPromise());
                 }
             } else {
+                // 标记 inputClosedSeenErrorOnRead 为 true
+                //在标记 inputClosedSeenErrorOnRead = true 后，在 NioByteUnsafe#read() 方法中，会主动对 SelectionKey.OP_READ 的
+                // 感兴趣，避免空轮询
                 inputClosedSeenErrorOnRead = true;
+                // 触发 ChannelInputShutdownEvent.INSTANCE 事件到 pipeline 中
                 pipeline.fireUserEventTriggered(ChannelInputShutdownReadComplete.INSTANCE);
             }
         }

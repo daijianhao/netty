@@ -183,6 +183,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         return promise;
     }
 
+    /**
+     * 关闭 Channel 数据的读取
+     */
     @Override
     public ChannelFuture shutdownInput() {
         return shutdownInput(newPromise());
@@ -264,14 +267,18 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     private void shutdownInput0(final ChannelPromise promise) {
         try {
+            // 关闭 Channel 数据的读取
             shutdownInput0();
+            // 通知 Promise 成功
             promise.setSuccess();
         } catch (Throwable t) {
+            // 通知 Promise 失败
             promise.setFailure(t);
         }
     }
 
     private void shutdownInput0() throws Exception {
+        // 调用 Java NIO Channel 的 shutdownInput 方法
         if (PlatformDependent.javaVersion() >= 7) {
             javaChannel().shutdownInput();
         } else {
@@ -337,7 +344,9 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
 
     @Override
     protected void doClose() throws Exception {
+        // 执行父类关闭方法
         super.doClose();
+        // 执行 Java 原生 NIO SocketChannel 关闭
         javaChannel().close();
     }
 
@@ -488,12 +497,27 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         @Override
         protected Executor prepareToClose() {
             try {
+                //如果配置 StandardSocketOptions.SO_LINGER 大于 0
+                //Socket 参数，关闭 Socket 的延迟时间，Netty 默认值为 -1 ，表示禁用该功能。
+                //
+                //* -1 表示 socket.close() 方法立即返回，但 OS 底层会将发送缓冲区全部发送到对端。
+                //* 0 表示 socket.close() 方法立即返回，OS 放弃发送缓冲区的数据直接向对端发送RST包，对端收到复位错误。
+                //* 非 0 整数值表示调用 socket.close() 方法的线程被阻塞直到延迟时间到或发送缓冲区中的数据发送完毕，若超时，则对端会收到复位错误。
+
+                //按照这个定义，如果大于 0，如果在真正关闭 Channel ，需要阻塞直到延迟时间到或发送缓冲区中的数据发送完毕。
+                //如果在 EventLoop 中执行真正关闭 Channel 的操作，那么势必会阻塞 EventLoop 的线程。所以，返回 GlobalEventExecutor.INSTANCE 对象，作为执行真正关闭 Channel 的操作的执行器( 它也有一个自己的线程哟 )
                 if (javaChannel().isOpen() && config().getSoLinger() > 0) {
                     // We need to cancel this key of the channel so we may not end up in a eventloop spin
                     // because we try to read or write until the actual close happens which may be later due
                     // SO_LINGER handling.
                     // See https://github.com/netty/netty/issues/4449
+                    //调用 #doDeregister() 方法，执行取消注册
+                    //为什么要调用 #doDeregister() 方法呢？因为 SO_LINGER 大于 0 时，真正关闭 Channel ，需要阻塞直到延迟时间到
+                    // 或发送缓冲区中的数据发送完毕。如果不取消该 Channel 的 SelectionKey.OP_READ 事件的感兴趣，就会不断触发
+                    // 读事件，导致 CPU 空轮询。为什么呢?在 Channel 关闭时，会自动触发 SelectionKey.OP_READ 事件。而且，会不断
+                    // 不断不断的触发，如果不进行取消 SelectionKey.OP_READ 事件的感兴趣。
                     doDeregister();
+                    // 返回 GlobalEventExecutor 对象
                     return GlobalEventExecutor.INSTANCE;
                 }
             } catch (Throwable ignore) {

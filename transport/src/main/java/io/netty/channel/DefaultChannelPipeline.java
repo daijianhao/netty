@@ -1179,6 +1179,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return tail.deregister();
     }
 
+    /**
+     * 在方法内部，会调用 TailContext#flush() 方法，将 flush 事件在 pipeline 中，从尾节点向头节点传播
+     * @return
+     */
     @Override
     public final ChannelPipeline flush() {
         tail.flush();
@@ -1621,6 +1625,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
             unsafe.write(msg, promise);
         }
 
+        /**
+         * 刷新内存队列，将其中的数据写入到对端
+         * @param ctx the {@link ChannelHandlerContext} for which the flush operation is made
+         */
         @Override
         public void flush(ChannelHandlerContext ctx) {
             unsafe.flush();

@@ -250,6 +250,8 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
     @Override
     public Channel flush() {
+        //在方法内部，会调用对应的 ChannelPipeline#flush() 方法，将 flush 事件在 pipeline 上传播
+        //最终会传播 flush 事件到 head 节点，刷新内存队列，将其中的数据写入到对端
         pipeline.flush();
         return this;
     }
@@ -293,6 +295,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     /**
      * 将 write 事件在 pipeline 上传播
      * 最终会传播 write 事件到 head 节点，将数据写入到内存队列中
+     *
      * @param msg
      * @return
      */
@@ -437,6 +440,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
          */
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
+
+        /**
+         * 是否正在 flush 中，即正在调用 {@link #flush0()} 中
+         */
         private boolean inFlush0;
         /**
          * true if the channel has never been registered, false otherwise
@@ -924,30 +931,37 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             assertEventLoop();
 
             ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
+            // 内存队列为 null ，一般是 Channel 已经关闭，所以直接返回
             if (outboundBuffer == null) {
                 return;
             }
-
+            // 标记内存队列开始 flush
             outboundBuffer.addFlush();
+            // 执行 flush
             flush0();
         }
 
         @SuppressWarnings("deprecation")
         protected void flush0() {
             if (inFlush0) {
+                // 正在 flush 中，所以直接返回。
                 // Avoid re-entrance
                 return;
             }
 
             final ChannelOutboundBuffer outboundBuffer = this.outboundBuffer;
             if (outboundBuffer == null || outboundBuffer.isEmpty()) {
+                // 内存队列为 null ，一般是 Channel 已经关闭，所以直接返回
                 return;
             }
-
+            // 标记正在 flush 中
             inFlush0 = true;
 
             // Mark all pending write requests as failure if the channel is inactive.
+            // 若未激活，通知 flush 失败
             if (!isActive()) {
+                //调用 #isActive() 方法，发现 Channel 未激活，在根据 Channel 是否打开，
+                // 调用 ChannelOutboundBuffer#failFlushed(Throwable cause, boolean notify) 方法，通知 flush 失败异常
                 try {
                     if (isOpen()) {
                         outboundBuffer.failFlushed(FLUSH0_NOT_YET_CONNECTED_EXCEPTION, true);
@@ -956,11 +970,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         outboundBuffer.failFlushed(newFlush0Exception(initialCloseCause), false);
                     }
                 } finally {
+                    // 标记不在 flush 中
                     inFlush0 = false;
                 }
                 return;
             }
-
+            // 执行真正的写入到对端
             try {
                 doWrite(outboundBuffer);
             } catch (Throwable t) {

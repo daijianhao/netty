@@ -241,6 +241,15 @@ public interface Channel extends AttributeMap, ChannelOutboundInvoker, Comparabl
     /**
      * 继承自 ChannelOutboundInvoker 接口
      * @return
+     *
+     * 在本文中，我们会发现，#flush() 方法和 #write(Object msg, ...) 正常情况下，经历的流程是差不多的，例如在 pipeline 中对事件的传播，从 tail 节点传播到 head 节点，最终交由 Unsafe 处理，而差异点就是 Unsafe 的处理方式不同：
+     *
+     * write 方法：将数据写到内存队列中。
+     * flush 方法：刷新内存队列，将其中的数据写入到对端。
+     * 当然，上述描述仅仅指的是正常情况下，在异常情况下会有所不同。我们知道，Channel 大多数情况下是可写的，所以不需要专门
+     * 去注册 SelectionKey.OP_WRITE 事件。所以在 Netty 的实现中，默认 Channel 是可写的，当写入失败的时候，
+     * 再去注册 SelectionKey.OP_WRITE 事件。这意味着什么呢？在 #flush() 方法中，如果写入数据到 Channel 失败，会通过注
+     * 册 SelectionKey.OP_WRITE 事件，然后在轮询到 Channel 可写 时，再“回调” #forceFlush() 方法
      */
     @Override
     Channel flush();

@@ -35,6 +35,8 @@ import java.nio.charset.Charset;
 
 /**
  * An empty {@link ByteBuf} whose capacity and maximum capacity are all {@code 0}.
+ *
+ * 继承 ByteBuf 抽象类，用于构建空 ByteBuf 对象，capacity 和 maxCapacity 均为 0
  */
 public final class EmptyByteBuf extends ByteBuf {
 

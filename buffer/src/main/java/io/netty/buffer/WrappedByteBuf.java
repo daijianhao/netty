@@ -35,9 +35,16 @@ import java.nio.charset.Charset;
  * It's important that the {@link #readerIndex()} and {@link #writerIndex()} will not do any adjustments on the
  * indices on the fly because of internal optimizations made by {@link ByteBufUtil#writeAscii(ByteBuf, CharSequence)}
  * and {@link ByteBufUtil#writeUtf8(ByteBuf, CharSequence)}.
+ *
+ * 继承 ByteBuf 抽象类，用于装饰 ByteBuf 对象
+ *
+ * 每个实现方法，是对 buf 的对应方法的调用
  */
 class WrappedByteBuf extends ByteBuf {
 
+    /**
+     * 被装饰的 ByteBuf 对象
+     */
     protected final ByteBuf buf;
 
     protected WrappedByteBuf(ByteBuf buf) {

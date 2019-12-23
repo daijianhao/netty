@@ -40,6 +40,7 @@ public final class MathUtil {
      * Fast method of finding the next power of 2 greater than or equal to the supplied value.
      * <p>This method will do runtime bounds checking and call {@link #findNextPositivePowerOfTwo(int)} if within a
      * valid range.
+     *
      * @param value from which to search for next power of 2
      * @return The next power of 2 or the value itself if it is a power of 2.
      * <p>Special cases for return values are as follows:
@@ -54,24 +55,27 @@ public final class MathUtil {
 
     /**
      * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
-     * @param index The starting index.
-     * @param length The length which will be utilized (starting from {@code index}).
+     *
+     * @param index    The starting index.
+     * @param length   The length which will be utilized (starting from {@code index}).
      * @param capacity The capacity that {@code index + length} is allowed to be within.
      * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
      * {@code false} if this would result in an index out of bounds exception.
      */
     public static boolean isOutOfBounds(int index, int length, int capacity) {
+        // 只有有负数，或运算，就会有负数。
+        // 另外，此处的越界，不仅仅有 capacity - (index + length < 0 ，例如 index < 0 ，也是越界
         return (index | length | (index + length) | (capacity - (index + length))) < 0;
     }
 
     /**
      * Compares two {@code int} values.
      *
-     * @param  x the first {@code int} to compare
-     * @param  y the second {@code int} to compare
+     * @param x the first {@code int} to compare
+     * @param y the second {@code int} to compare
      * @return the value {@code 0} if {@code x == y};
-     *         {@code -1} if {@code x < y}; and
-     *         {@code 1} if {@code x > y}
+     * {@code -1} if {@code x < y}; and
+     * {@code 1} if {@code x > y}
      */
     public static int compare(final int x, final int y) {
         // do not subtract for comparison, it could overflow
@@ -80,10 +84,10 @@ public final class MathUtil {
 
     /**
      * Compare two {@code long} values.
+     *
      * @param x the first {@code long} to compare.
      * @param y the second {@code long} to compare.
-     * @return
-     * <ul>
+     * @return <ul>
      * <li>0 if {@code x == y}</li>
      * <li>{@code > 0} if {@code x > y}</li>
      * <li>{@code < 0} if {@code x < y}</li>

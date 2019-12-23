@@ -32,11 +32,24 @@ import java.nio.charset.Charset;
  *
  * @deprecated use the Little Endian accessors, e.g. {@code getShortLE}, {@code getIntLE}
  * instead.
+ * <p>
+ * 继承 ByteBuf 抽象类，用于构建具有切换字节序功能的 ByteBuf 对象
+ * <p>
+ * 实际上，SwappedByteBuf 可以看成一个特殊的 WrappedByteBuf 实现，所以它除了读写操作外的方法，都是对 buf 的对应方法的调用
+ *
+ * 通过 SwappedByteBuf 类，我们可以很方便的修改原 ByteBuf 对象的字节序，并且无需进行内存复制。但是反过来，一定要注意，这两者是共享的。
  */
 @Deprecated
 public class SwappedByteBuf extends ByteBuf {
 
+    /**
+     * 原 ByteBuf 对象
+     */
     private final ByteBuf buf;
+
+    /**
+     * 字节序
+     */
     private final ByteOrder order;
 
     public SwappedByteBuf(ByteBuf buf) {
@@ -44,6 +57,7 @@ public class SwappedByteBuf extends ByteBuf {
             throw new NullPointerException("buf");
         }
         this.buf = buf;
+        // 初始化 order 属性,改变order为相反的
         if (buf.order() == ByteOrder.BIG_ENDIAN) {
             order = ByteOrder.LITTLE_ENDIAN;
         } else {
@@ -419,7 +433,9 @@ public class SwappedByteBuf extends ByteBuf {
 
     @Override
     public ByteBuf setInt(int index, int value) {
+        //先调用 ByteBufUtil#swapInt(int value) 方法，将 value 的值，转换成相反字节序的 Int 值
         buf.setInt(index, ByteBufUtil.swapInt(value));
+        //后调用 buf 的对应方法
         return this;
     }
 

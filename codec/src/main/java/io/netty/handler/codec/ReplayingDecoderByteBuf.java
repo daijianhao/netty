@@ -34,6 +34,11 @@ import java.nio.charset.Charset;
 
 /**
  * Special {@link ByteBuf} implementation which is used by the {@link ReplayingDecoder}
+ *
+ * 承 ByteBuf 抽象类，用于构建在 IO 阻塞条件下实现无阻塞解码的特殊 ByteBuf对 象。当要读取的数据还未接收完全时，抛出异常，
+ * 交由 ReplayingDecoder 处理
+ *
+ * 细心的胖友，会看到 ReplayingDecoderByteBuf 是在 codec 模块，配合 ReplayingDecoder 使用
  */
 final class ReplayingDecoderByteBuf extends ByteBuf {
 

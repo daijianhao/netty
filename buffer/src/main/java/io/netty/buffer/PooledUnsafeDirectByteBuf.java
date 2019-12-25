@@ -28,6 +28,11 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
+/**
+ * 它是 「PooledDirectByteBuf」 对应的基于 Unsafe 版本的实现类。
+ * <p>
+ * io.netty.buffer.PooledUnsafeDirectByteBuf ，实现 PooledByteBuf 抽象类，基于 ByteBuffer + Unsafe 的可重用 ByteBuf 实现类。所以，泛型 T 为 ByteBuffer
+ */
 final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     private static final Recycler<PooledUnsafeDirectByteBuf> RECYCLER = new Recycler<PooledUnsafeDirectByteBuf>() {
         @Override
@@ -57,11 +62,15 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     @Override
     void initUnpooled(PoolChunk<ByteBuffer> chunk, int length) {
+        // 调用父初始化方法
         super.initUnpooled(chunk, length);
+        // 初始化内存地址
         initMemoryAddress();
     }
 
     private void initMemoryAddress() {
+        //调用 PlatformDependent#directBufferAddress(ByteBuffer buffer) 方法，获得 ByteBuffer 对象的起始内存地址
+        //已经将 offset 添加到 memoryAddress 中。所以在 #addr(int index) 方法中，求指定位置( index ) 在内存地址的顺序，不用再添加
         memoryAddress = PlatformDependent.directBufferAddress(memory) + offset;
     }
 
@@ -100,6 +109,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         return UnsafeByteBufUtil.getUnsignedMediumLE(addr(index));
     }
 
+    //以 Int 类型为例子，来看看它的读取和写入操作的实现代码
     @Override
     protected int _getInt(int index) {
         return UnsafeByteBufUtil.getInt(addr(index));
@@ -351,6 +361,7 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         throw new UnsupportedOperationException("direct buffer");
     }
 
+    //Unsafe相关方法有实现
     @Override
     public boolean hasMemoryAddress() {
         return true;
@@ -366,10 +377,16 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         return memoryAddress + index;
     }
 
+    /**
+     * 创建 SwappedByteBuf 对象
+     * @return
+     */
     @Override
     protected SwappedByteBuf newSwappedByteBuf() {
         if (PlatformDependent.isUnaligned()) {
             // Only use if unaligned access is supported otherwise there is no gain.
+            //对于 Linux 环境下，一般是支持 unaligned access( 对齐访问 )，所以返回的是 UnsafeDirectSwappedByteBuf 对象
+            //ps:关于对齐访问 https://www.zhihu.com/question/23791224
             return new UnsafeDirectSwappedByteBuf(this);
         }
         return super.newSwappedByteBuf();

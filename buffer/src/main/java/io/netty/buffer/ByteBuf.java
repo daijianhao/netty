@@ -255,6 +255,31 @@ import java.nio.charset.UnsupportedCharsetException;
  * A06. 支持方法的链式调用
  * A07. 支持引用计数
  * A08. 支持池化
+ *
+ *
+ *ByteBuf主要有8个核心的实现类：
+ *一共可以按照三个维度来看这 8 个核心子类，刚好是 2 x 2 x 2 = 8 ：
+ *
+ * 按照内存类型分类：
+ * ① 堆内存字节缓冲区( HeapByteBuf )：底层为 JVM 堆内的字节数组，其特点是申请和释放效率较高。但是如果要进行 Socket 的 I/O 读写，
+ * 需要额外多做一次内存复制，需要将堆内存对应的缓冲区复制到内核 Channel 中，性能可能会有一定程度的损耗。
+ * ② 直接内存字节缓冲区( DirectByteBuf )：堆外内存，为操作系统内核空间的字节数组，它由操作系统直接管理和操作，其申请和释放的效率会
+ * 慢于堆缓冲区。但是将它写入或者从 SocketChannel 中读取时，会少一次内存复制，这样可以大大提高 I/O 效率，实现零拷贝。
+ * 关于这两者的对比，感兴趣的胖友，可以再看看 《Java NIO direct buffer 的优势在哪儿？》 和 《JAVA NIO 之 Direct Buffer 与
+ * Heap Buffer的区别？》
+ * 按照 对象池 分类：
+ * ① 基于对象池( PooledByteBuf )：基于对象池的 ByteBuf 可以重用 ByteBuf ，也就是说它自己内部维护着一个对象池，当对象释放后会归还
+ * 给对象池，这样就可以循环地利用创建的 ByteBuf，提升内存的使用率，降低由于高负载导致的频繁 GC。当需要大量且频繁创建缓冲区时，推荐使
+ * 用该类缓冲区。
+ * ② 不使用对象池( UnpooledByteBuf )：对象池的管理和维护会比较困难，所以在不需要创建大量缓冲区对象时，推荐使用此类缓冲区。
+ * 按照 Unsafe 分类：
+ * ① 使用 Unsafe ：基于 Java sun.misc.Unsafe.Unsafe 的 API ，直接访问内存中的数据。
+ * ② 不使用 Unsafe ： 基于 HeapByteBuf 和 DirectByteBuf 的标准 API ，进行访问对应的数据。
+ * 关于 Unsafe ，JVM 大佬 R 大在知乎上有个回答：《为什么 JUC 中大量使用了 sun.misc.Unsafe 这个类，但官方却不建议开发者使用？》 。
+ * 关于为什么 Unsafe 的性能会更好：”其中一种是嫌 Java 性能不够好，例如说数组访问的边界检查语义，嫌这个开销太大，觉得用 Unsafe 会更
+ * 快；”。
+ *
+ * 默认情况下，使用 PooledUnsafeDirectByteBuf 类型。
  */
 @SuppressWarnings("ClassMayBeInterface")
 public abstract class ByteBuf implements ReferenceCounted, Comparable<ByteBuf> {

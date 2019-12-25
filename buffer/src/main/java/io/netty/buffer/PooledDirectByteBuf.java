@@ -27,17 +27,26 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
+/**
+ * 实现 PooledByteBuf 抽象类，基于 ByteBuffer 的可重用 ByteBuf 实现类。所以，泛型 T 为 ByteBuffer
+ */
 final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     private static final Recycler<PooledDirectByteBuf> RECYCLER = new Recycler<PooledDirectByteBuf>() {
         @Override
         protected PooledDirectByteBuf newObject(Handle<PooledDirectByteBuf> handle) {
+            // 真正创建 PooledDirectByteBuf 对象
             return new PooledDirectByteBuf(handle, 0);
         }
     };
 
+    /**
+     * 静态方法，“创建” PooledDirectByteBuf 对象
+     */
     static PooledDirectByteBuf newInstance(int maxCapacity) {
+        // 从 Recycler 的对象池中获得 PooledDirectByteBuf 对象
         PooledDirectByteBuf buf = RECYCLER.get();
+        // 重置 PooledDirectByteBuf 的属性
         buf.reuse(maxCapacity);
         return buf;
     }
@@ -48,9 +57,15 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
 
     @Override
     protected ByteBuffer newInternalNioBuffer(ByteBuffer memory) {
+        //调用 ByteBuffer#duplicate() 方法，复制一个 ByteBuffer 对象，共享里面的数据
         return memory.duplicate();
     }
 
+    /**
+     * isDirect() 方法，获得内部类型是否为 Direct
+     *
+     * @return
+     */
     @Override
     public boolean isDirect() {
         return true;
@@ -74,18 +89,20 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
     @Override
     protected int _getUnsignedMedium(int index) {
         index = idx(index);
-        return (memory.get(index) & 0xff)     << 16 |
-               (memory.get(index + 1) & 0xff) << 8  |
-               memory.get(index + 2) & 0xff;
+        return (memory.get(index) & 0xff) << 16 |
+                (memory.get(index + 1) & 0xff) << 8 |
+                memory.get(index + 2) & 0xff;
     }
 
     @Override
     protected int _getUnsignedMediumLE(int index) {
         index = idx(index);
-        return memory.get(index)      & 0xff        |
-               (memory.get(index + 1) & 0xff) << 8  |
-               (memory.get(index + 2) & 0xff) << 16;
+        return memory.get(index) & 0xff |
+                (memory.get(index + 1) & 0xff) << 8 |
+                (memory.get(index + 2) & 0xff) << 16;
     }
+
+    //读取写入等操作
 
     @Override
     protected int _getInt(int index) {
@@ -113,7 +130,7 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         if (dst.hasArray()) {
             getBytes(index, dst.array(), dst.arrayOffset() + dstIndex, length);
         } else if (dst.nioBufferCount() > 0) {
-            for (ByteBuffer bb: dst.nioBuffers(dstIndex, length)) {
+            for (ByteBuffer bb : dst.nioBuffers(dstIndex, length)) {
                 int bbLen = bb.remaining();
                 getBytes(index, bb);
                 index += bbLen;
@@ -287,6 +304,12 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         memory.put(index + 2, (byte) (value >>> 16));
     }
 
+    /**
+     * 写入int数据
+     *
+     * @param index
+     * @param value
+     */
     @Override
     protected void _setInt(int index, int value) {
         memory.putInt(idx(index), value);
@@ -313,7 +336,7 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         if (src.hasArray()) {
             setBytes(index, src.array(), src.arrayOffset() + srcIndex, length);
         } else if (src.nioBufferCount() > 0) {
-            for (ByteBuffer bb: src.nioBuffers(srcIndex, length)) {
+            for (ByteBuffer bb : src.nioBuffers(srcIndex, length)) {
                 int bbLen = bb.remaining();
                 setBytes(index, bb);
                 index += bbLen;
@@ -388,37 +411,64 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         }
     }
 
+    /**
+     * 复制指定范围的数据到新创建的 Direct ByteBuf 对象
+     *
+     * @param index
+     * @param length
+     * @return
+     */
     @Override
     public ByteBuf copy(int index, int length) {
+        // 校验索引
         checkIndex(index, length);
+        // 创建一个 Direct ByteBuf 对象
         ByteBuf copy = alloc().directBuffer(length, maxCapacity());
+        // 写入数据
         copy.writeBytes(this, index, length);
         return copy;
     }
 
     @Override
     public int nioBufferCount() {
+        //返回 ByteBuf 包含 ByteBuffer 数量为 1
         return 1;
     }
 
+    /**
+     * 返回 ByteBuf 指定范围包含的 ByteBuffer 对象( 共享 )
+     */
     @Override
     public ByteBuffer nioBuffer(int index, int length) {
         checkIndex(index, length);
+        // memory 中的开始位置
         index = idx(index);
+        // duplicate 复制一个 ByteBuffer 对象，共享数据
+        // position + limit 设置位置和大小限制
+        // slice 创建 [position, limit] 子缓冲区，共享数据
         return ((ByteBuffer) memory.duplicate().position(index).limit(index + length)).slice();
     }
 
     @Override
     public ByteBuffer[] nioBuffers(int index, int length) {
-        return new ByteBuffer[] { nioBuffer(index, length) };
+        //在 #nioBuffer(int index, int length) 方法的基础上，创建大小为 1 的 ByteBuffer 数组
+        return new ByteBuffer[]{nioBuffer(index, length)};
     }
 
+    /**
+     * 返回 ByteBuf 指定范围内的 ByteBuffer 对象( 共享 )
+     */
     @Override
     public ByteBuffer internalNioBuffer(int index, int length) {
         checkIndex(index, length);
+        // memory 中的开始位置
         index = idx(index);
+        // clear 标记清空（不会清理数据）
+        // position + limit 设置位置和大小限制
         return (ByteBuffer) internalNioBuffer().clear().position(index).limit(index + length);
     }
+
+    //下方属于heap实现的方法在此不被支持 不支持 Heap 相关方法
 
     @Override
     public boolean hasArray() {
@@ -435,6 +485,7 @@ final class PooledDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         throw new UnsupportedOperationException("direct buffer");
     }
 
+    //Unsafe相关的方法在此类中也是不支持的
     @Override
     public boolean hasMemoryAddress() {
         return false;

@@ -17,6 +17,9 @@ package io.netty.buffer;
 
 import io.netty.util.internal.PlatformDependent;
 
+/**
+ * 实现 AbstractReferenceCountedByteBuf 抽象类，对应 「 PooledUnsafeHeapByteBuf」 的非池化 ByteBuf 实现类
+ */
 class UnpooledUnsafeHeapByteBuf extends UnpooledHeapByteBuf {
 
     /**

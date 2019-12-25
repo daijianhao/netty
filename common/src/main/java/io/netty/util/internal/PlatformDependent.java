@@ -400,6 +400,10 @@ public final class PlatformDependent {
      * the current platform does not support this operation or the specified buffer is not a direct buffer.
      */
     public static void freeDirectBuffer(ByteBuffer buffer) {
+        //释放 Direct ByteBuffer 对象。因为 Java 的版本不同，调用的方法，所以 Cleaner 有两个 实现类
+        //io.netty.util.internal.CleanerJava9 ，适用于 Java9+ 的版本，通过反射调用 DirectByteBuffer 对象的 #invokeCleaner() 方法，进行释放。
+        //io.netty.util.internal.CleanerJava6 ，适用于 Java6+ 的版本，通过反射获得 DirectByteBuffer 对象的 #cleaner() 方法，
+        // 从而调用 sun.misc.Cleaner#clean() 方法，进行释放。
         CLEANER.freeDirectBuffer(buffer);
     }
 

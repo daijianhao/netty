@@ -26,6 +26,9 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 
+/**
+ * 实现 PooledByteBuf 抽象类，基于 ByteBuffer 的可重用 ByteBuf 实现类。所以，泛型 T 为 byte[]
+ */
 class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
 
     private static final Recycler<PooledHeapByteBuf> RECYCLER = new Recycler<PooledHeapByteBuf>() {
@@ -45,6 +48,11 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
         super(recyclerHandle, maxCapacity);
     }
 
+    /**
+     * 获得内部类型是否为 Direct ，返回 false
+     *
+     * @return
+     */
     @Override
     public final boolean isDirect() {
         return false;
@@ -75,9 +83,22 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
         return HeapByteBufUtil.getUnsignedMediumLE(memory, idx(index));
     }
 
+    /**
+     * 以 Int 类型为例子，来看看它的读取和写入操作的实现代码
+     */
     @Override
     protected int _getInt(int index) {
         return HeapByteBufUtil.getInt(memory, idx(index));
+        /**
+         * HeapByteBufUtil:
+         *
+         * static int getInt(byte[] memory, int index) {
+         *         return  (memory[index]     & 0xff) << 24 |
+         *                 (memory[index + 1] & 0xff) << 16 |
+         *                 (memory[index + 2] & 0xff) <<  8 |
+         *                 memory[index + 3] & 0xff;
+         *     }
+         */
     }
 
     @Override
@@ -190,7 +211,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
     }
 
     @Override
-    protected void _setMedium(int index, int   value) {
+    protected void _setMedium(int index, int value) {
         HeapByteBufUtil.setMedium(memory, idx(index), value);
     }
 
@@ -200,7 +221,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
     }
 
     @Override
-    protected void _setInt(int index, int   value) {
+    protected void _setInt(int index, int value) {
         HeapByteBufUtil.setInt(memory, idx(index), value);
     }
 
@@ -210,7 +231,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
     }
 
     @Override
-    protected void _setLong(int index, long  value) {
+    protected void _setLong(int index, long value) {
         HeapByteBufUtil.setLong(memory, idx(index), value);
     }
 
@@ -277,8 +298,12 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
 
     @Override
     public final ByteBuf copy(int index, int length) {
+        // 校验索引
         checkIndex(index, length);
+        // 创建一个 Heap ByteBuf 对象
+        //和 PooledDirectByteBuf的差异在于，创建的是 Heap ByteBuf 对象
         ByteBuf copy = alloc().heapBuffer(length, maxCapacity());
+        // 写入数据
         copy.writeBytes(memory, idx(index), length);
         return copy;
     }
@@ -290,14 +315,17 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
 
     @Override
     public final ByteBuffer[] nioBuffers(int index, int length) {
-        return new ByteBuffer[] { nioBuffer(index, length) };
+        return new ByteBuffer[]{nioBuffer(index, length)};
     }
 
     @Override
     public final ByteBuffer nioBuffer(int index, int length) {
         checkIndex(index, length);
+        // memory 中的开始位置
         index = idx(index);
-        ByteBuffer buf =  ByteBuffer.wrap(memory, index, length);
+        // 创建 ByteBuffer 对象
+        ByteBuffer buf = ByteBuffer.wrap(memory, index, length);
+        // slice 创建 [position, limit] 子缓冲区
         return buf.slice();
     }
 
@@ -308,6 +336,8 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
         return (ByteBuffer) internalNioBuffer().clear().position(index).limit(index + length);
     }
 
+
+    //heap相关实现在本类中有实现
     @Override
     public final boolean hasArray() {
         return true;
@@ -324,6 +354,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
         return offset;
     }
 
+    //Unsafe相关此类中无实现
     @Override
     public final boolean hasMemoryAddress() {
         return false;
@@ -336,6 +367,7 @@ class PooledHeapByteBuf extends PooledByteBuf<byte[]> {
 
     @Override
     protected final ByteBuffer newInternalNioBuffer(byte[] memory) {
+        //调用 ByteBuffer#wrap(byte[] array) 方法，创建 ByteBuffer 对象。注意，返回的是 HeapByteBuffer 对象
         return ByteBuffer.wrap(memory);
     }
 }

@@ -25,12 +25,23 @@ import static io.netty.util.internal.ObjectUtil.checkPositive;
 
 /**
  * Abstract base class for {@link ByteBuf} implementations that count references.
+ *
+ * 实现引用计数的获取与增减的操作
  */
 public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
     private static final long REFCNT_FIELD_OFFSET;
+    /**
+     * {@link #refCnt} 的更新器
+     *
+     * 计数器基于 AtomicIntegerFieldUpdater ，为什么不直接用 AtomicInteger ？因为 ByteBuf 对象很多，
+     * 如果都把 int 包一层 AtomicInteger 花销较大，而AtomicIntegerFieldUpdater 只需要一个全局的静态变量
+     */
     private static final AtomicIntegerFieldUpdater<AbstractReferenceCountedByteBuf> refCntUpdater =
             AtomicIntegerFieldUpdater.newUpdater(AbstractReferenceCountedByteBuf.class, "refCnt");
 
+    /**
+     * 引用计数
+     */
     // even => "real" refcount is (refCnt >>> 1); odd => "real" refcount is 0
     @SuppressWarnings("unused")
     private volatile int refCnt = 2;
@@ -54,6 +65,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
     }
 
     protected AbstractReferenceCountedByteBuf(int maxCapacity) {
+        // 设置最大容量
         super(maxCapacity);
     }
 
@@ -79,6 +91,10 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         return rawCnt == 2 || rawCnt == 4 || rawCnt == 6 || rawCnt == 8 || (rawCnt & 1) == 0;
     }
 
+    /**
+     * 获取 refCnt
+     * @return
+     */
     @Override
     public int refCnt() {
         return realRefCnt(refCntUpdater.get(this));
@@ -86,6 +102,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
 
     /**
      * An unsafe operation intended for use by a subclass that sets the reference count of the buffer directly
+     * 修改refCnt
      */
     protected final void setRefCnt(int newRefCnt) {
         refCntUpdater.set(this, newRefCnt << 1); // overflow OK here
@@ -109,6 +126,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
             throw new IllegalReferenceCountException(0, increment);
         }
         // don't pass 0!
+        // 原有 refCnt 就是 <= 0 ；或者，increment 为负数
         if ((oldRef <= 0 && oldRef + adjustedIncrement >= 0)
                 || (oldRef >= 0 && oldRef + adjustedIncrement < oldRef)) {
             // overflow case
@@ -118,6 +136,9 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         return this;
     }
 
+    /**
+     * 一脸懵逼？！实际 AbstractReferenceCountedByteBuf 并未实现 #touch(...) 方法。而是在 AdvancedLeakAwareByteBuf 中才实现
+     */
     @Override
     public ByteBuf touch() {
         return this;

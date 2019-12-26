@@ -33,9 +33,16 @@ import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
 
+/**
+ * 继承 SimpleLeakAwareByteBuf 类，ADVANCED 和 PARANOID 级别的 LeakAware ByteBuf 实现类
+ */
 final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
 
     private static final String PROP_ACQUIRE_AND_RELEASE_ONLY = "io.netty.leakDetection.acquireAndReleaseOnly";
+
+    /**
+     * 表示除了引用计数操作相关( 即 #retain(...)/#release(...)/#touch(...) 方法 )方法外，是否要调用记录信息
+     */
     private static final boolean ACQUIRE_AND_RELEASE_ONLY;
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(AdvancedLeakAwareByteBuf.class);
@@ -59,6 +66,9 @@ final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
         super(wrapped, trackedByteBuf, leak);
     }
 
+    /**
+     * 除了引用计数操作相关( 即 #retain(...)/#release(...)/#touch(...) 方法 )方法外，是否要调用记录信息
+     */
     static void recordLeakNonRefCountingOperation(ResourceLeakTracker<ByteBuf> leak) {
         if (!ACQUIRE_AND_RELEASE_ONLY) {
             leak.record();
@@ -925,30 +935,35 @@ final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
 
     @Override
     public ByteBuf retain() {
+        //会调用 ResourceLeakTracer#record() 方法，记录信息
         leak.record();
         return super.retain();
     }
 
     @Override
     public ByteBuf retain(int increment) {
+        //会调用 ResourceLeakTracer#record() 方法，记录信息
         leak.record();
         return super.retain(increment);
     }
 
     @Override
     public boolean release() {
+        //会调用 ResourceLeakTracer#record() 方法，记录信息
         leak.record();
         return super.release();
     }
 
     @Override
     public boolean release(int decrement) {
+        //会调用 ResourceLeakTracer#record() 方法，记录信息
         leak.record();
         return super.release(decrement);
     }
 
     @Override
     public ByteBuf touch() {
+        //会调用 ResourceLeakTracer#record() 方法，记录信息
         leak.record();
         return this;
     }
@@ -962,6 +977,7 @@ final class AdvancedLeakAwareByteBuf extends SimpleLeakAwareByteBuf {
     @Override
     protected AdvancedLeakAwareByteBuf newLeakAwareByteBuf(
             ByteBuf buf, ByteBuf trackedByteBuf, ResourceLeakTracker<ByteBuf> leakTracker) {
+        //覆写父类方法，将原先装饰成 SimpleLeakAwareByteBuf 改成 AdvancedLeakAwareByteBuf 对象
         return new AdvancedLeakAwareByteBuf(buf, trackedByteBuf, leakTracker);
     }
 }

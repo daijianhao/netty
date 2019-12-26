@@ -20,6 +20,7 @@ import java.nio.ByteOrder;
 /**
  * A {@link ByteBuf} implementation that wraps another buffer to prevent a user from increasing or decreasing the
  * wrapped buffer's reference count.
+ * 继承 WrappedByteBuf 类，用于阻止他人对装饰的 ByteBuf 的销毁，避免被错误销毁掉
  */
 final class UnreleasableByteBuf extends WrappedByteBuf {
 
@@ -55,6 +56,7 @@ final class UnreleasableByteBuf extends WrappedByteBuf {
         return new UnreleasableByteBuf(buf.readSlice(length));
     }
 
+    //拷贝操作相关方法，都会在包一层 UnreleasableByteBuf 对象
     @Override
     public ByteBuf readRetainedSlice(int length) {
         // We could call buf.readSlice(..), and then call buf.release(). However this creates a leak in unit tests
@@ -102,6 +104,7 @@ final class UnreleasableByteBuf extends WrappedByteBuf {
         return duplicate();
     }
 
+    //引用计数操作相关( 即 #retain(...)/#release(...)/#touch(...) 方法 )方法，不进行调用。
     @Override
     public ByteBuf retain(int increment) {
         return this;

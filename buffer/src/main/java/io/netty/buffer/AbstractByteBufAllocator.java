@@ -25,6 +25,8 @@ import io.netty.util.internal.StringUtil;
 
 /**
  * Skeletal {@link ByteBufAllocator} implementation to extend.
+ * <p>
+ * ByteBufAllocator的分配器
  */
 public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
     static final int DEFAULT_INITIAL_CAPACITY = 256;
@@ -36,8 +38,13 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         ResourceLeakDetector.addExclusions(AbstractByteBufAllocator.class, "toLeakAwareBuffer");
     }
 
+    /**
+     * ByteBufAllocator 可用于创建 ByteBuf 对象。创建的过程中，它会调用 #toLeakAwareBuffer(...) 方法，
+     * 将 ByteBuf 装饰成 LeakAware ( 可检测内存泄露 )的 ByteBuf 对象
+     */
     protected static ByteBuf toLeakAwareBuffer(ByteBuf buf) {
         ResourceLeakTracker<ByteBuf> leak;
+        //根据不同的内存泄露检测级别来创建不同的包装类
         switch (ResourceLeakDetector.getLevel()) {
             case SIMPLE:
                 leak = AbstractByteBuf.leakDetector.track(buf);
@@ -58,6 +65,16 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return buf;
     }
 
+    /**
+     * 有两个 #toLeakAwareBuffer(...) 方法，分别对应带 "Composite" 的 组合 ByteBuf 类，和不带 Composite 普通 ByteBuf 类。
+     * 因为这个不同，所以前者创建的是 SimpleLeakAwareCompositeByteBuf / AdvancedLeakAwareCompositeByteBuf 对象，
+     * 后者创建的是 SimpleLeakAwareByteBuf / AdvancedLeakAwareByteBuf 对象。
+     *
+     * 是否需要创建 LeakAware ByteBuf 对象，有一个前提，调用 ResourceLeakDetector#track(ByteBuf) 方法，返回了 ResourceLeakTracker 对象。
+     * 虽然说， ADVANCED 和 PARANOID 级别，都使用了 AdvancedLeakAwareByteBuf 或 AdvancedLeakAwareCompositeByteBuf 对象，
+     * 但是它们的差异是：1) PARANOID 级别，一定返回 ResourceLeakTracker 对象；
+     * 2) ADVANCED 级别，随机概率( 默认为 1% 左右 )返回 ResourceLeakTracker 对象。
+     */
     protected static CompositeByteBuf toLeakAwareBuffer(CompositeByteBuf buf) {
         ResourceLeakTracker<ByteBuf> leak;
         switch (ResourceLeakDetector.getLevel()) {

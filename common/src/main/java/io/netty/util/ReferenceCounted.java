@@ -28,20 +28,27 @@ package io.netty.util;
  * {@link ReferenceCounted}, the contained objects will also be released via {@link #release()} when the container's
  * reference count becomes 0.
  * </p>
+ *
+ * 在 Netty 中，通过 io.netty.util.ReferenceCounted 接口，定义了引用计数相关的一系列操作
  */
 public interface ReferenceCounted {
     /**
      * Returns the reference count of this object.  If {@code 0}, it means this object has been deallocated.
+     *
+     * 获得引用计数
      */
     int refCnt();
 
     /**
      * Increases the reference count by {@code 1}.
+     * 增加引用计数 1
      */
     ReferenceCounted retain();
 
     /**
      * Increases the reference count by the specified {@code increment}.
+     *
+     *增加指定的引用计数
      */
     ReferenceCounted retain(int increment);
 
@@ -49,6 +56,8 @@ public interface ReferenceCounted {
      * Records the current access location of this object for debugging purposes.
      * If this object is determined to be leaked, the information recorded by this operation will be provided to you
      * via {@link ResourceLeakDetector}.  This method is a shortcut to {@link #touch(Object) touch(null)}.
+     *
+     * 等价于调用 `#touch(null)` 方法，即 hint 方法参数传递为 null 。
      */
     ReferenceCounted touch();
 
@@ -56,6 +65,8 @@ public interface ReferenceCounted {
      * Records the current access location of this object with an additional arbitrary information for debugging
      * purposes.  If this object is determined to be leaked, the information recorded by this operation will be
      * provided to you via {@link ResourceLeakDetector}.
+     *
+     * 出于调试目的,用一个额外的任意的(arbitrary)信息记录这个对象的当前访问地址. 如果这个对象被检测到泄露了, 这个操作记录的信息将通过ResourceLeakDetector 提供.
      */
     ReferenceCounted touch(Object hint);
 
@@ -64,6 +75,9 @@ public interface ReferenceCounted {
      * {@code 0}.
      *
      * @return {@code true} if and only if the reference count became {@code 0} and this object has been deallocated
+     *
+     * 减少引用计数 1 。
+     * 当引用计数为 0 时，释放
      */
     boolean release();
 
@@ -72,6 +86,9 @@ public interface ReferenceCounted {
      * count reaches at {@code 0}.
      *
      * @return {@code true} if and only if the reference count became {@code 0} and this object has been deallocated
+     *
+     * 减少引用计数 n 。
+     * 当引用计数为 0 时，释放
      */
     boolean release(int decrement);
 }

@@ -29,6 +29,9 @@ import io.netty.util.internal.StringUtil;
  * ByteBufAllocator的分配器
  */
 public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
+    /**
+     * 默认容量大小
+     */
     static final int DEFAULT_INITIAL_CAPACITY = 256;
     static final int DEFAULT_MAX_CAPACITY = Integer.MAX_VALUE;
     static final int DEFAULT_MAX_COMPONENTS = 16;
@@ -97,7 +100,15 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return buf;
     }
 
+    /**
+     * 是否倾向创建 Direct ByteBuf 。有一个前提是需要支持 Unsafe 操作
+     */
     private final boolean directByDefault;
+
+    /**
+     * 空 ByteBuf 缓存
+     * 空 ByteBuf 缓存对象。用于 #buffer() 等方法，创建空 ByteBuf 对象时
+     */
     private final ByteBuf emptyBuf;
 
     /**
@@ -142,6 +153,8 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
         return heapBuffer(initialCapacity, maxCapacity);
     }
 
+
+    //根据是否支持 Unsafe 操作的情况，调用 #directBuffer(...) 方法，还是调用 #heapBuffer(...) 方法
     @Override
     public ByteBuf ioBuffer() {
         if (PlatformDependent.hasUnsafe()) {
@@ -227,6 +240,7 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     @Override
     public CompositeByteBuf compositeHeapBuffer(int maxNumComponents) {
+        //调用 #toLeakAwareBuffer(CompositeByteBuf) 方法，装饰成 LeakAware 的 ByteBuf 对象
         return toLeakAwareBuffer(new CompositeByteBuf(this, false, maxNumComponents));
     }
 
@@ -256,6 +270,8 @@ public abstract class AbstractByteBufAllocator implements ByteBufAllocator {
 
     /**
      * Create a direct {@link ByteBuf} with the given initialCapacity and maxCapacity.
+     *
+     * 因为是否基于对象池的方式，创建 Direct ByteBuf 对象的实现会不同，所以需要抽象
      */
     protected abstract ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity);
 

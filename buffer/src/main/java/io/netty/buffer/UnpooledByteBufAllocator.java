@@ -26,8 +26,19 @@ import java.nio.ByteBuffer;
  */
 public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator implements ByteBufAllocatorMetricProvider {
 
+    /**
+     * Metric
+     */
     private final UnpooledByteBufAllocatorMetric metric = new UnpooledByteBufAllocatorMetric();
+
+    /**
+     * 是否禁用内存泄露检测功能
+     */
     private final boolean disableLeakDetector;
+
+    /**
+     * 不使用 `io.netty.util.internal.Cleaner` 释放 Direct ByteBuf
+     */
     private final boolean noCleaner;
 
     /**
@@ -49,8 +60,8 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     /**
      * Create a new instance
      *
-     * @param preferDirect {@code true} if {@link #buffer(int)} should try to allocate a direct buffer rather than
-     *                     a heap buffer
+     * @param preferDirect        {@code true} if {@link #buffer(int)} should try to allocate a direct buffer rather than
+     *                            a heap buffer
      * @param disableLeakDetector {@code true} if the leak-detection should be disabled completely for this
      *                            allocator. This can be useful if the user just want to depend on the GC to handle
      *                            direct buffers when not explicit released.
@@ -62,12 +73,12 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
     /**
      * Create a new instance
      *
-     * @param preferDirect {@code true} if {@link #buffer(int)} should try to allocate a direct buffer rather than
-     *                     a heap buffer
+     * @param preferDirect        {@code true} if {@link #buffer(int)} should try to allocate a direct buffer rather than
+     *                            a heap buffer
      * @param disableLeakDetector {@code true} if the leak-detection should be disabled completely for this
      *                            allocator. This can be useful if the user just want to depend on the GC to handle
      *                            direct buffers when not explicit released.
-     * @param tryNoCleaner {@code true} if we should try to use {@link PlatformDependent#allocateDirectNoCleaner(int)}
+     * @param tryNoCleaner        {@code true} if we should try to use {@link PlatformDependent#allocateDirectNoCleaner(int)}
      *                            to allocate direct memory.
      */
     public UnpooledByteBufAllocator(boolean preferDirect, boolean disableLeakDetector, boolean tryNoCleaner) {
@@ -77,6 +88,13 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
                 && PlatformDependent.hasDirectBufferNoCleanerConstructor();
     }
 
+    /**
+     * 创建的是以 "Instrumented" 的 Heap ByteBuf 对象，因为要结合 Metric
+     *
+     * @param initialCapacity
+     * @param maxCapacity
+     * @return
+     */
     @Override
     protected ByteBuf newHeapBuffer(int initialCapacity, int maxCapacity) {
         return PlatformDependent.hasUnsafe() ?
@@ -84,6 +102,9 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
                 new InstrumentedUnpooledHeapByteBuf(this, initialCapacity, maxCapacity);
     }
 
+    /**
+     * 创建的是以 "Instrumented" 的 Heap ByteBuf 对象，因为要结合 Metric 。详细解析
+     */
     @Override
     protected ByteBuf newDirectBuffer(int initialCapacity, int maxCapacity) {
         final ByteBuf buf;
@@ -93,6 +114,7 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         } else {
             buf = new InstrumentedUnpooledDirectByteBuf(this, initialCapacity, maxCapacity);
         }
+        //在非池化ByteBuf分配器中根据disableLeakDetector来判断是否创建LeakAwareBuffer，而在池化ByteBuf分配器中都是会包装为LeakAwareBuffer
         return disableLeakDetector ? buf : toLeakAwareBuffer(buf);
     }
 
@@ -134,6 +156,9 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         metric.heapCounter.add(-amount);
     }
 
+    /**
+     * 在原先的基础上，调用 Metric 相应的增减操作方法，得以记录 Heap 占用内存的大小
+     */
     private static final class InstrumentedUnpooledUnsafeHeapByteBuf extends UnpooledUnsafeHeapByteBuf {
         InstrumentedUnpooledUnsafeHeapByteBuf(UnpooledByteBufAllocator alloc, int initialCapacity, int maxCapacity) {
             super(alloc, initialCapacity, maxCapacity);
@@ -246,8 +271,18 @@ public final class UnpooledByteBufAllocator extends AbstractByteBufAllocator imp
         }
     }
 
+    /**
+     * 在 UnpooledByteBufAllocator 的内部静态类，实现 ByteBufAllocatorMetric 接口，UnpooledByteBufAllocator Metric 实现类
+     */
     private static final class UnpooledByteBufAllocatorMetric implements ByteBufAllocatorMetric {
+        /**
+         * Direct ByteBuf 占用内存大小
+         */
         final LongCounter directCounter = PlatformDependent.newLongCounter();
+
+        /**
+         * Heap ByteBuf 占用内存大小
+         */
         final LongCounter heapCounter = PlatformDependent.newLongCounter();
 
         @Override

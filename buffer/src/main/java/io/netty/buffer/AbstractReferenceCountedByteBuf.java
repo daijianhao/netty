@@ -25,14 +25,14 @@ import static io.netty.util.internal.ObjectUtil.checkPositive;
 
 /**
  * Abstract base class for {@link ByteBuf} implementations that count references.
- *
+ * <p>
  * 实现引用计数的获取与增减的操作
  */
 public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
     private static final long REFCNT_FIELD_OFFSET;
     /**
      * {@link #refCnt} 的更新器
-     *
+     * <p>
      * 计数器基于 AtomicIntegerFieldUpdater ，为什么不直接用 AtomicInteger ？因为 ByteBuf 对象很多，
      * 如果都把 int 包一层 AtomicInteger 花销较大，而AtomicIntegerFieldUpdater 只需要一个全局的静态变量
      */
@@ -93,6 +93,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
 
     /**
      * 获取 refCnt
+     *
      * @return
      */
     @Override
@@ -159,10 +160,14 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
         return release0(checkPositive(decrement, "decrement"));
     }
 
+    /**
+     * 释放
+     */
     private boolean release0(int decrement) {
         int rawCnt = nonVolatileRawCnt(), realCnt = toLiveRealCnt(rawCnt, decrement);
         if (decrement == realCnt) {
             if (refCntUpdater.compareAndSet(this, rawCnt, 1)) {
+                //当引用数是0时，释放内存
                 deallocate();
                 return true;
             }
@@ -181,7 +186,7 @@ public abstract class AbstractReferenceCountedByteBuf extends AbstractByteBuf {
     }
 
     private boolean retryRelease0(int decrement) {
-        for (;;) {
+        for (; ; ) {
             int rawCnt = refCntUpdater.get(this), realCnt = toLiveRealCnt(rawCnt, decrement);
             if (decrement == realCnt) {
                 if (refCntUpdater.compareAndSet(this, rawCnt, 1)) {

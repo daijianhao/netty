@@ -41,8 +41,15 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         }
     };
 
+    /**
+     * 从RECYCLER的轻量级对象池中获取ByteBuf
+     */
     static PooledUnsafeDirectByteBuf newInstance(int maxCapacity) {
+        //从RECYCLER的轻量级对象池中获取ByteBuf
+        //每个RECYCLER中都有一个FastThreadLocal,其中包含了一个Stack,Stack中又存了Handle,Handle中存放了真正回收的对象
+        //如果没有回收的对象可用，则调用上面的newObject(Handle<PooledUnsafeDirectByteBuf> handle)创建一个新的ByteBuf
         PooledUnsafeDirectByteBuf buf = RECYCLER.get();
+        //重置ByteBuf
         buf.reuse(maxCapacity);
         return buf;
     }

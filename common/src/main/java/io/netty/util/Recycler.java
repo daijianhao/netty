@@ -35,6 +35,8 @@ import static java.lang.Math.min;
  * Light-weight object pool based on a thread-local stack.
  *
  * @param <T> the type of the pooled object
+ *            <p>
+ *            基于Thread-Local栈的轻量级对象池
  */
 public abstract class Recycler<T> {
 
@@ -47,10 +49,29 @@ public abstract class Recycler<T> {
             // NOOP
         }
     };
+    /**
+     * ID生成器
+     */
     private static final AtomicInteger ID_GENERATOR = new AtomicInteger(Integer.MIN_VALUE);
+
+    /**
+     * 拥有的线程ID
+     */
     private static final int OWN_THREAD_ID = ID_GENERATOR.getAndIncrement();
+
+    /**
+     * 默认的每个线程最大初始容量
+     */
     private static final int DEFAULT_INITIAL_MAX_CAPACITY_PER_THREAD = 4 * 1024; // Use 4k instances as default.
+
+    /**
+     * 每个线程默认最大容量
+     */
     private static final int DEFAULT_MAX_CAPACITY_PER_THREAD;
+
+    /**
+     * 初始容量
+     */
     private static final int INITIAL_CAPACITY;
     private static final int MAX_SHARED_CAPACITY_FACTOR;
     private static final int MAX_DELAYED_QUEUES_PER_THREAD;
@@ -119,9 +140,9 @@ public abstract class Recycler<T> {
         protected void onRemoval(Stack<T> value) {
             // Let us remove the WeakOrderQueue from the WeakHashMap directly if its safe to remove some overhead
             if (value.threadRef.get() == Thread.currentThread()) {
-               if (DELAYED_RECYCLED.isSet()) {
-                   DELAYED_RECYCLED.get().remove(value);
-               }
+                if (DELAYED_RECYCLED.isSet()) {
+                    DELAYED_RECYCLED.get().remove(value);
+                }
             }
         }
     };
@@ -228,11 +249,11 @@ public abstract class Recycler<T> {
 
     private static final FastThreadLocal<Map<Stack<?>, WeakOrderQueue>> DELAYED_RECYCLED =
             new FastThreadLocal<Map<Stack<?>, WeakOrderQueue>>() {
-        @Override
-        protected Map<Stack<?>, WeakOrderQueue> initialValue() {
-            return new WeakHashMap<Stack<?>, WeakOrderQueue>();
-        }
-    };
+                @Override
+                protected Map<Stack<?>, WeakOrderQueue> initialValue() {
+                    return new WeakHashMap<Stack<?>, WeakOrderQueue>();
+                }
+            };
 
     // a queue that makes only moderate guarantees about visibility: items are seen in the correct order,
     // but we aren't absolutely guaranteed to ever see anything at all, thereby keeping the queue cheap to maintain
@@ -289,7 +310,7 @@ public abstract class Recycler<T> {
 
             static boolean reserveSpace(AtomicInteger availableSharedCapacity, int space) {
                 assert space >= 0;
-                for (;;) {
+                for (; ; ) {
                     int available = availableSharedCapacity.get();
                     if (available < space) {
                         return false;
@@ -422,7 +443,7 @@ public abstract class Recycler<T> {
                         continue;
                     }
                     element.stack = dst;
-                    dstElems[newDstSize ++] = element;
+                    dstElems[newDstSize++] = element;
                 }
 
                 if (srcEnd == LINK_CAPACITY && head.next != null) {
@@ -502,7 +523,7 @@ public abstract class Recycler<T> {
             return newCapacity;
         }
 
-        @SuppressWarnings({ "unchecked", "rawtypes" })
+        @SuppressWarnings({"unchecked", "rawtypes"})
         DefaultHandle<T> pop() {
             int size = this.size;
             if (size == 0) {
@@ -511,7 +532,7 @@ public abstract class Recycler<T> {
                 }
                 size = this.size;
             }
-            size --;
+            size--;
             DefaultHandle ret = elements[size];
             elements[size] = null;
             if (ret.lastRecycledId != ret.recycleId) {
@@ -560,7 +581,7 @@ public abstract class Recycler<T> {
                     // performing a volatile read to confirm there is no data left to collect.
                     // We never unlink the first queue, as we don't want to synchronize on updating the head.
                     if (cursor.hasFinalData()) {
-                        for (;;) {
+                        for (; ; ) {
                             if (cursor.transfer(this)) {
                                 success = true;
                             } else {

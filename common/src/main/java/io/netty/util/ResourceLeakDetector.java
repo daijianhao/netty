@@ -306,6 +306,8 @@ public class ResourceLeakDetector<T> {
      * @return the {@link ResourceLeakTracker} or {@code null}
      * <p>
      * 给指定资源( 例如 ByteBuf 对象 )创建一个检测它是否泄漏的 ResourceLeakTracker 对象
+     *
+     * ResourceLeakTracker实际上也会一个弱引用
      */
     @SuppressWarnings("unchecked")
     public final ResourceLeakTracker<T> track(T obj) {

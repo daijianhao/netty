@@ -25,6 +25,9 @@ import java.util.List;
 @SuppressWarnings("deprecation")
 public final class PooledByteBufAllocatorMetric implements ByteBufAllocatorMetric {
 
+    /**
+     * PooledByteBufAllocator 对象
+     */
     private final PooledByteBufAllocator allocator;
 
     PooledByteBufAllocatorMetric(PooledByteBufAllocator allocator) {

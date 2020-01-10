@@ -57,6 +57,8 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
      * 使用 memory 的开始位置
      * <p>
      * 因为 memory 属性，可以被多个 ByteBuf 使用。每个 ByteBuf 使用范围为 [offset, maxLength)
+     * <p>
+     * 这边是内存池化后可以分给多个ByteBuf使用不同的区间，因而不会冲突
      *
      * @see #idx(int)
      */
@@ -127,6 +129,7 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
         // From PoolChunk 对象
         this.chunk = chunk;
         memory = chunk.memory;
+        //这里的nioBuffer可能和memory是同一个对象
         tmpNioBuf = nioBuffer;
         allocator = chunk.arena.parent;
         // 其他
@@ -284,7 +287,7 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     protected abstract ByteBuffer newInternalNioBuffer(T memory);
 
     /**
-     *
+     *池化ByteBuf的释放
      */
     @Override
     protected final void deallocate() {

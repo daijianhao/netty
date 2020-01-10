@@ -24,6 +24,9 @@ import io.netty.util.internal.UnstableApi;
 /**
  * Wraps another {@link ByteBufAllocator} and use heapbuffers everywhere except when a direct buffer is explicit
  * requested.
+ * <p>
+ * 实现 ByteBufAllocator 接口，倾向创建 Heap ByteBuf 的分配器。也就是说，#buffer(...) 和 #ioBuffer(...)
+ * 和 #compositeBuffer(...) 方法，创建的都是 Heap ByteBuf 对象
  */
 @UnstableApi
 public final class PreferHeapByteBufAllocator implements ByteBufAllocator {

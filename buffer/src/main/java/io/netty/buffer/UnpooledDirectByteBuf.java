@@ -33,7 +33,7 @@ import java.nio.channels.ScatteringByteChannel;
  * A NIO {@link ByteBuffer} based buffer. It is recommended to use
  * {@link UnpooledByteBufAllocator#directBuffer(int, int)}, {@link Unpooled#directBuffer(int)} and
  * {@link Unpooled#wrappedBuffer(ByteBuffer)} instead of calling the constructor explicitly.
- *
+ * <p>
  * 实现 AbstractReferenceCountedByteBuf 抽象类，对应 「PooledDirectByteBuf」 的非池化 ByteBuf 实现类
  */
 public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
@@ -60,7 +60,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
     /**
      * 是否需要释放 <1>
-     *
+     * <p>
      * 如果 {@link #buffer} 从外部传入，则需要进行释放，即 {@link #UnpooledDirectByteBuf(ByteBufAllocator, ByteBuffer, int)} 构造方法。
      */
     private boolean doNotFree;
@@ -292,16 +292,16 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     protected int _getUnsignedMedium(int index) {
-        return (getByte(index) & 0xff)     << 16 |
-               (getByte(index + 1) & 0xff) << 8  |
-               getByte(index + 2) & 0xff;
+        return (getByte(index) & 0xff) << 16 |
+                (getByte(index + 1) & 0xff) << 8 |
+                getByte(index + 2) & 0xff;
     }
 
     @Override
     protected int _getUnsignedMediumLE(int index) {
-        return getByte(index) & 0xff             |
-               (getByte(index + 1) & 0xff) << 8  |
-               (getByte(index + 2) & 0xff) << 16;
+        return getByte(index) & 0xff |
+                (getByte(index + 1) & 0xff) << 8 |
+                (getByte(index + 2) & 0xff) << 16;
     }
 
     @Override
@@ -342,7 +342,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
         if (dst.hasArray()) {
             getBytes(index, dst.array(), dst.arrayOffset() + dstIndex, length);
         } else if (dst.nioBufferCount() > 0) {
-            for (ByteBuffer bb: dst.nioBuffers(dstIndex, length)) {
+            for (ByteBuffer bb : dst.nioBuffers(dstIndex, length)) {
                 int bbLen = bb.remaining();
                 getBytes(index, bb);
                 index += bbLen;
@@ -496,7 +496,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
     public ByteBuf setBytes(int index, ByteBuf src, int srcIndex, int length) {
         checkSrcIndex(index, length, srcIndex, src.capacity());
         if (src.nioBufferCount() > 0) {
-            for (ByteBuffer bb: src.nioBuffers(srcIndex, length)) {
+            for (ByteBuffer bb : src.nioBuffers(srcIndex, length)) {
                 int bbLen = bb.remaining();
                 setBytes(index, bb);
                 index += bbLen;
@@ -653,7 +653,7 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
 
     @Override
     public ByteBuffer[] nioBuffers(int index, int length) {
-        return new ByteBuffer[] { nioBuffer(index, length) };
+        return new ByteBuffer[]{nioBuffer(index, length)};
     }
 
     @Override
@@ -689,6 +689,9 @@ public class UnpooledDirectByteBuf extends AbstractReferenceCountedByteBuf {
         return ((ByteBuffer) buffer.duplicate().position(index).limit(index + length)).slice();
     }
 
+    /**
+     * 对于非池化的ByteBuf，释放时直接将申请的内存释放掉
+     */
     @Override
     protected void deallocate() {
         ByteBuffer buffer = this.buffer;

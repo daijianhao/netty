@@ -300,6 +300,9 @@ final class PooledUnsafeDirectByteBuf extends PooledByteBuf<ByteBuffer> {
         checkIndex(index, length);
         ByteBuffer tmpBuf = internalNioBuffer();
         index = idx(index);
+        //这里的tmpBuf和memory共用同一块内存
+        //但这里的clear()不会清除tmpBuf中的数据，只是将index置为0，limit置为capacity，然后重新设置index位置和limit，这样就可以将
+        //数据操作范围仍然控制在jemalloc算法分配的范围内，不会影响其他共用此ByteBuf的ByteBuf中的数据
         tmpBuf.clear().position(index).limit(index + length);
         try {
             //会调用 Java NIO 的 ScatteringByteChannel#read(ByteBuffer) 方法，读取数据到临时的 Java NIO ByteBuffer 中

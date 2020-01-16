@@ -25,17 +25,31 @@ import java.util.List;
 
 /**
  * A Codec for on-the-fly encoding/decoding of bytes to messages and vise-versa.
- *
+ * <p>
  * This can be thought of as a combination of {@link ByteToMessageDecoder} and {@link MessageToByteEncoder}.
- *
+ * <p>
  * Be aware that sub-classes of {@link ByteToMessageCodec} <strong>MUST NOT</strong>
  * annotated with {@link @Sharable}.
+ * <p>
+ * 编解码是成对出现的，所以 Netty 提供了 ByteToMessageCodec 类，支持 Encoder 和 Decoder 两个功能。
+ * <p>
+ * 继承 ChannelDuplexHandler 类，通过组合 MessageToByteEncoder 和 ByteToMessageDecoder 的功能，从而实现编解码的 Codec 抽象类。
  */
 public abstract class ByteToMessageCodec<I> extends ChannelDuplexHandler {
 
+    /**
+     * 类型匹配器
+     */
     private final TypeParameterMatcher outboundMsgMatcher;
+
+    /**
+     * Encoder 对象
+     */
     private final MessageToByteEncoder<I> encoder;
 
+    /**
+     * Decoder 对象
+     */
     private final ByteToMessageDecoder decoder = new ByteToMessageDecoder() {
         @Override
         public void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
@@ -65,9 +79,9 @@ public abstract class ByteToMessageCodec<I> extends ChannelDuplexHandler {
     /**
      * Create a new instance which will try to detect the types to match out of the type parameter of the class.
      *
-     * @param preferDirect          {@code true} if a direct {@link ByteBuf} should be tried to be used as target for
-     *                              the encoded messages. If {@code false} is used it will allocate a heap
-     *                              {@link ByteBuf}, which is backed by an byte array.
+     * @param preferDirect {@code true} if a direct {@link ByteBuf} should be tried to be used as target for
+     *                     the encoded messages. If {@code false} is used it will allocate a heap
+     *                     {@link ByteBuf}, which is backed by an byte array.
      */
     protected ByteToMessageCodec(boolean preferDirect) {
         ensureNotSharable();
@@ -78,10 +92,10 @@ public abstract class ByteToMessageCodec<I> extends ChannelDuplexHandler {
     /**
      * Create a new instance
      *
-     * @param outboundMessageType   The type of messages to match
-     * @param preferDirect          {@code true} if a direct {@link ByteBuf} should be tried to be used as target for
-     *                              the encoded messages. If {@code false} is used it will allocate a heap
-     *                              {@link ByteBuf}, which is backed by an byte array.
+     * @param outboundMessageType The type of messages to match
+     * @param preferDirect        {@code true} if a direct {@link ByteBuf} should be tried to be used as target for
+     *                            the encoded messages. If {@code false} is used it will allocate a heap
+     *                            {@link ByteBuf}, which is backed by an byte array.
      */
     protected ByteToMessageCodec(Class<? extends I> outboundMessageType, boolean preferDirect) {
         ensureNotSharable();

@@ -38,10 +38,25 @@ import io.netty.util.internal.TypeParameterMatcher;
  * Be aware that depending of the constructor parameters it will release all handled events by passing them to
  * {@link ReferenceCountUtil#release(Object)}. In this case you may need to use
  * {@link ReferenceCountUtil#retain(Object)} if you pass the object to the next handler in the {@link ChannelPipeline}.
+ *
+ *
+ * 继承 ChannelInboundHandlerAdapter 类，抽象类，处理指定事件的消息
+ *
+ * SimpleUserEventChannelHandler 和 SimpleChannelInboundHandler 基本一致，差别在于将指定类型的消息，
+ * 改成了制定类型的事件。😈 所以，笔者就不详细解析
  */
 public abstract class SimpleUserEventChannelHandler<I> extends ChannelInboundHandlerAdapter {
 
+    /**
+     * 类型匹配器
+     */
     private final TypeParameterMatcher matcher;
+
+    /**
+     * 使用完消息，是否自动释放
+     *
+     * @see #channelRead(ChannelHandlerContext, Object)
+     */
     private final boolean autoRelease;
 
     /**
@@ -91,17 +106,22 @@ public abstract class SimpleUserEventChannelHandler<I> extends ChannelInboundHan
 
     @Override
     public final void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        // 是否要释放消息
         boolean release = true;
         try {
+            // 判断是否为匹配的消息
             if (acceptEvent(evt)) {
                 @SuppressWarnings("unchecked")
                 I ievt = (I) evt;
+                // 处理消息
                 eventReceived(ctx, ievt);
             } else {
+                // 不需要释放消息
                 release = false;
                 ctx.fireUserEventTriggered(evt);
             }
         } finally {
+            // 判断，是否要释放消息
             if (autoRelease && release) {
                 ReferenceCountUtil.release(evt);
             }

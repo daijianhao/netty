@@ -20,6 +20,8 @@ import io.netty.channel.ChannelException;
 /**
  * A {@link TimeoutException} when no data was either read or written within a
  * certain period of time.
+ *
+ * 继承 ChannelException 类，超时异常
  */
 public class TimeoutException extends ChannelException {
 

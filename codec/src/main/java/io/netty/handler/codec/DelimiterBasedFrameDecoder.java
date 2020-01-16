@@ -56,6 +56,9 @@ import java.util.List;
  * | ABC\nDEF |
  * +----------+
  * </pre>
+ *
+ * 继承 ByteToMessageDecoder 抽象类，基于指定消息边界方式进行粘包拆包处理的。
+ * https://www.jianshu.com/p/a0a51fd79f62
  */
 public class DelimiterBasedFrameDecoder extends ByteToMessageDecoder {
 

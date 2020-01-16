@@ -25,7 +25,12 @@ import java.util.Map;
  */
 public abstract class ChannelHandlerAdapter implements ChannelHandler {
 
-    // Not using volatile because it's used only for a sanity check.
+    /**
+     *
+     * 是否已经初始化
+     * Not using volatile because it's used only for a sanity check.
+     *
+     */
     boolean added;
 
     /**

@@ -19,6 +19,10 @@ import io.netty.util.internal.logging.InternalLogLevel;
 
 /**
  * Maps the regular {@link LogLevel}s with the {@link InternalLogLevel} ones.
+ *
+ * 日志级别枚举类
+ *
+ * Netty 提供了一套日志框架，方便接入 slf4j、log4j、jdk logger 等等日志框架。感兴趣的胖友，可以看看 https://segmentfault.com/a/1190000005797595
  */
 public enum LogLevel {
     TRACE(InternalLogLevel.TRACE),
@@ -27,6 +31,9 @@ public enum LogLevel {
     WARN(InternalLogLevel.WARN),
     ERROR(InternalLogLevel.ERROR);
 
+    /**
+     * Netty 内部日志级别
+     */
     private final InternalLogLevel internalLevel;
 
     LogLevel(InternalLogLevel internalLevel) {

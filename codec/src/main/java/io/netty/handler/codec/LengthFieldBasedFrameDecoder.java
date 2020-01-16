@@ -183,15 +183,39 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
  * +------+--------+------+----------------+      +------+----------------+
  * </pre>
  * @see LengthFieldPrepender
+ *
+ * 继承 ByteToMessageDecoder 抽象类，基于消息头指定消息长度进行粘包拆包处理的。
  */
 public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
 
     private final ByteOrder byteOrder;
+
+    /**
+     * 包的最大长度，超出包的最大长度netty将会做一些特殊处理
+     */
     private final int maxFrameLength;
+
+    /**
+     * 长度域的偏移量
+     *
+     * 表示跳过lengthFieldOffset个字节之后的才是长度域
+     */
     private final int lengthFieldOffset;
+
+    /**
+     * 长度域长度
+     */
     private final int lengthFieldLength;
     private final int lengthFieldEndOffset;
+
+    /**
+     * 包体长度调整的大小，长度域的数值表示的长度加上这个修正值表示的就是带header的包
+     */
     private final int lengthAdjustment;
+    /**
+     * 长度域被截掉
+     * 表示获取完一个完整的数据包之后，忽略前面的initialBytesToStrip个字节，应用解码器拿到的就是不带长度域的数据包
+     */
     private final int initialBytesToStrip;
     private final boolean failFast;
     private boolean discardingTooLongFrame;
@@ -297,6 +321,12 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      *        has been read.  If <tt>false</tt>, a {@link TooLongFrameException}
      *        is thrown after the entire frame that exceeds <tt>maxFrameLength</tt>
      *        has been read.
+     *
+     *
+     * 1.byteOrder 表示字节流表示的数据是大端还是小端，用于长度域的读取
+     * 2.lengthFieldEndOffset表示紧跟长度域字段后面的第一个字节的在整个数据包中的偏移量
+     * 3.failFast，如果为true，则表示读取到长度域，TA的值的超过maxFrameLength，就抛出一个 TooLongFrameException，而为false表示只有当真正读取完长度域的值表示的字节之后，才会抛出 TooLongFrameException，默认情况下设置为true，建议不要修改，否则可能会造成内存溢出
+     *
      */
     public LengthFieldBasedFrameDecoder(
             ByteOrder byteOrder, int maxFrameLength, int lengthFieldOffset, int lengthFieldLength,
@@ -400,17 +430,20 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
             discardingTooLongFrame(in);
         }
 
+        // 如果当前可读字节还未达到长度长度域的偏移，那说明肯定是读不到长度域的，直接不读
         if (in.readableBytes() < lengthFieldEndOffset) {
             return null;
         }
-
+        // 拿到长度域的实际字节偏移
         int actualLengthFieldOffset = in.readerIndex() + lengthFieldOffset;
+        // 拿到实际的未调整过的包长度
         long frameLength = getUnadjustedFrameLength(in, actualLengthFieldOffset, lengthFieldLength, byteOrder);
 
+        // 如果拿到的长度为负数，直接跳过长度域并抛出异常
         if (frameLength < 0) {
             failOnNegativeLengthField(in, frameLength, lengthFieldEndOffset);
         }
-
+        // 调整包的长度，后面统一做拆分
         frameLength += lengthAdjustment + lengthFieldEndOffset;
 
         if (frameLength < lengthFieldEndOffset) {
@@ -448,6 +481,8 @@ public class LengthFieldBasedFrameDecoder extends ByteToMessageDecoder {
      * buffer (e.g. {@code readerIndex}, {@code writerIndex}, and the content of the buffer.)
      *
      * @throws DecoderException if failed to decode the specified region
+     *
+     * 如果你的长度域代表的值表达的含义不是正常的int,short等基本类型，你可以重写这个函数
      */
     protected long getUnadjustedFrameLength(ByteBuf buf, int offset, int length, ByteOrder order) {
         buf = buf.order(order);

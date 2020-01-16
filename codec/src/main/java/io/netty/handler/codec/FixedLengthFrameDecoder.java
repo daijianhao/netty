@@ -37,9 +37,14 @@ import java.util.List;
  * | ABC | DEF | GHI |
  * +-----+-----+-----+
  * </pre>
+ * <p>
+ * 继承 ByteToMessageDecoder 抽象类，基于固定长度消息进行粘包拆包处理的
  */
 public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
 
+    /**
+     * 固定长度
+     */
     private final int frameLength;
 
     /**
@@ -54,8 +59,10 @@ public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
 
     @Override
     protected final void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        // 解码消息
         Object decoded = decode(ctx, in);
         if (decoded != null) {
+            // 添加到 out 结果中
             out.add(decoded);
         }
     }
@@ -63,16 +70,21 @@ public class FixedLengthFrameDecoder extends ByteToMessageDecoder {
     /**
      * Create a frame out of the {@link ByteBuf} and return it.
      *
-     * @param   ctx             the {@link ChannelHandlerContext} which this {@link ByteToMessageDecoder} belongs to
-     * @param   in              the {@link ByteBuf} from which to read data
-     * @return  frame           the {@link ByteBuf} which represent the frame or {@code null} if no frame could
-     *                          be created.
+     * @param ctx the {@link ChannelHandlerContext} which this {@link ByteToMessageDecoder} belongs to
+     * @param in  the {@link ByteBuf} from which to read data
+     * @return frame           the {@link ByteBuf} which represent the frame or {@code null} if no frame could
+     * be created.
      */
     protected Object decode(
             @SuppressWarnings("UnusedParameters") ChannelHandlerContext ctx, ByteBuf in) throws Exception {
+        // 可读字节不够 frameLength 长度，无法解码出消息。
         if (in.readableBytes() < frameLength) {
             return null;
         } else {
+            // 可读字节足够 frameLength 长度，解码出一条消息。
+            //调用 ByteBuf#readRetainedSlice(int length) 方法，读取一个 Slice ByteBuf 对象，并增加引用计数。
+            // 并且该 Slice ByteBuf 作为解码的一条消息。另外，ByteBuf#readRetainedSlice(int length) 的过程，
+            // 因为是共享原有 ByteBuf in 数组，所以不存在数据拷贝。
             return in.readRetainedSlice(frameLength);
         }
     }

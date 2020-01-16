@@ -25,12 +25,15 @@ import java.math.BigInteger;
  * Encodes a {@link Number} into the binary representation prepended with
  * a magic number ('F' or 0x46) and a 32-bit length prefix.  For example, 42
  * will be encoded to { 'F', 0, 0, 0, 1, 42 }.
+ *
+ * NumberEncoder 是 netty-example 模块提供的示例类，实际使用时，需要做调整。
  */
 public class NumberEncoder extends MessageToByteEncoder<Number> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, Number msg, ByteBuf out) {
         // Convert to a BigInteger first for easier implementation.
+        // <1> 转化成 BigInteger 对象
         BigInteger v;
         if (msg instanceof BigInteger) {
             v = (BigInteger) msg;
@@ -39,10 +42,13 @@ public class NumberEncoder extends MessageToByteEncoder<Number> {
         }
 
         // Convert the number into a byte array.
+        // <2> 转换为字节数组
         byte[] data = v.toByteArray();
         int dataLength = data.length;
 
         // Write a message.
+        //首位，写入 magic number ，方便区分不同类型的消息。例如说，后面如果有 Double 类型，可以使用 D ；String 类型，可以使用 S 。
+        //后两位，写入 data length + data 。如果没有 data length ，那么数组内容，是无法读取的
         out.writeByte((byte) 'F'); // magic number
         out.writeInt(dataLength);  // data length
         out.writeBytes(data);      // data

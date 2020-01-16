@@ -59,7 +59,7 @@ import java.lang.annotation.Target;
  * (using {@link AttributeKey}s) which is specific to the handler.
  *
  * <h3>State management</h3>
- *
+ * <p>
  * A {@link ChannelHandler} often needs to store some stateful information.
  * The simplest and recommended approach is to use member variables:
  * <pre>
@@ -104,7 +104,7 @@ import java.lang.annotation.Target;
  * </pre>
  *
  * <h4>Using {@link AttributeKey}s</h4>
- *
+ * <p>
  * Although it's recommended to use member variables to store the state of a
  * handler, for some reason you might not want to create many handler instances.
  * In such a case, you can use {@link AttributeKey}s which is provided by
@@ -174,17 +174,28 @@ import java.lang.annotation.Target;
  * {@link ChannelPipeline} to find out more about inbound and outbound operations,
  * what fundamental differences they have, how they flow in a  pipeline,  and how to handle
  * the operation in your application.
+ * <p>
+ * ChannelHandler ，连接通道处理器，我们使用 Netty 中最常用的组件。ChannelHandler 主要用来处理各种事件，这里的事件很广泛，
+ * 比如可以是连接、数据接收、异常、数据转换等。
  */
 public interface ChannelHandler {
 
     /**
      * Gets called after the {@link ChannelHandler} was added to the actual context and it's ready to handle events.
+     *
+     * ChannelHandler 已经成功被添加到 ChannelPipeline 中，可以进行处理事件
+     *
+     * 该方法，一般用于 ChannelHandler 的初始化的逻辑
      */
     void handlerAdded(ChannelHandlerContext ctx) throws Exception;
 
     /**
      * Gets called after the {@link ChannelHandler} was removed from the actual context and it doesn't handle events
      * anymore.
+     *
+     * ChannelHandler 已经成功从 ChannelPipeline 中被移除，不再进行处理事件
+     *
+     * 该方法，一般用于 ChannelHandler 的销毁的逻辑
      */
     void handlerRemoved(ChannelHandlerContext ctx) throws Exception;
 
@@ -192,6 +203,9 @@ public interface ChannelHandler {
      * Gets called if a {@link Throwable} was thrown.
      *
      * @deprecated is part of {@link ChannelInboundHandler}
+     *
+     * 抓取到异常。目前被废弃，移到 ChannelInboundHandler 接口中，作为对 Exception Inbound 事件的处理
+     *
      */
     @Deprecated
     void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception;
@@ -207,6 +221,8 @@ public interface ChannelHandler {
      * <p>
      * This annotation is provided for documentation purpose, just like
      * <a href="http://www.javaconcurrencyinpractice.com/annotations/doc/">the JCIP annotations</a>.
+     *
+     * @Sharable 注解，ChannelHandler 是否可共享，即是否可以被多次添加
      */
     @Inherited
     @Documented

@@ -181,6 +181,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
             ByteBuf byteBuf = null;
             boolean close = false;
             try {
+                //此处会循环读取数据，
                 do {
                     // 申请 ByteBuf 对象
                     byteBuf = allocHandle.allocate(allocator);

@@ -25,6 +25,9 @@ import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 /**
  * Special {@link AbstractList} implementation which is used within our codec base classes.
+ * <p>
+ * 解码结果列表 CodecOutputList 是 Netty 定制的一个特殊列表，该列表在线程中被缓存，可循环使用来存储解码结果，减少不必要的列表实例创建，
+ * 从而提升性能。由于解码结果需要频繁存储，普通的 ArrayList 难以满足该需求，故定制化了一个特殊列表，由此可见 Netty 对优化的极致追求
  */
 final class CodecOutputList extends AbstractList<Object> implements RandomAccess {
 
@@ -125,7 +128,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
             expandArray();
             insert(size, element);
         }
-        ++ size;
+        ++size;
         return true;
     }
 
@@ -153,7 +156,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
         }
 
         insert(index, element);
-        ++ size;
+        ++size;
     }
 
     @Override
@@ -165,7 +168,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
         if (len > 0) {
             System.arraycopy(array, index + 1, array, index, len);
         }
-        array[-- size] = null;
+        array[--size] = null;
 
         return old;
     }
@@ -188,7 +191,7 @@ final class CodecOutputList extends AbstractList<Object> implements RandomAccess
      * Recycle the array which will clear it and null out all entries in the internal storage.
      */
     void recycle() {
-        for (int i = 0 ; i < size; i ++) {
+        for (int i = 0; i < size; i++) {
             array[i] = null;
         }
         size = 0;

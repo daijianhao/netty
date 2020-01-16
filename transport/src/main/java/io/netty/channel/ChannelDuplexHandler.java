@@ -20,16 +20,19 @@ import java.net.SocketAddress;
 /**
  * {@link ChannelHandler} implementation which represents a combination out of a {@link ChannelInboundHandler} and
  * the {@link ChannelOutboundHandler}.
- *
+ * <p>
  * It is a good starting point if your {@link ChannelHandler} implementation needs to intercept operations and also
  * state updates.
+ * <p>
+ * 实现 ChannelOutboundHandler 接口，继承 ChannelInboundHandlerAdapter 抽象类，Channel Duplex Handler 实现类，
+ * 支持对 Inbound 和 Outbound 事件的 Adaptive 处理，所以命名上带有“Duplex”( 双重 )
  */
 public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implements ChannelOutboundHandler {
 
     /**
      * Calls {@link ChannelHandlerContext#bind(SocketAddress, ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -41,7 +44,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#connect(SocketAddress, SocketAddress, ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -53,7 +56,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#disconnect(ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -65,7 +68,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#close(ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -76,7 +79,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#deregister(ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -87,7 +90,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#read()} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -98,7 +101,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#write(Object, ChannelPromise)} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override
@@ -109,7 +112,7 @@ public class ChannelDuplexHandler extends ChannelInboundHandlerAdapter implement
     /**
      * Calls {@link ChannelHandlerContext#flush()} to forward
      * to the next {@link ChannelOutboundHandler} in the {@link ChannelPipeline}.
-     *
+     * <p>
      * Sub-classes may override this method to change behavior.
      */
     @Override

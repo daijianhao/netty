@@ -28,6 +28,10 @@ package io.netty.channel;
  * method returns automatically. If you are looking for a {@link ChannelInboundHandler} implementation that
  * releases the received messages automatically, please see {@link SimpleChannelInboundHandler}.
  * </p>
+ *
+ * 实现 ChannelInboundHandler 接口，继承 ChannelHandlerAdapter 抽象类，ChannelInboundHandler Adapter 实现类
+ *
+ * 每个实现方法，直接转发到下一个节点，实际上也是默认无任何逻辑。子类如果有自定义的逻辑，可以进行覆写对应的方法。
  */
 public class ChannelInboundHandlerAdapter extends ChannelHandlerAdapter implements ChannelInboundHandler {
 

@@ -20,16 +20,28 @@ import io.netty.util.internal.ObjectUtil;
 
 /**
  * A user event triggered by {@link IdleStateHandler} when a {@link Channel} is idle.
+ *
+ * 3 类( state )空闲事件，再组合上是否首次( first )，一共有 6 种空闲事件
  */
 public class IdleStateEvent {
+    // READ
     public static final IdleStateEvent FIRST_READER_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.READER_IDLE, true);
     public static final IdleStateEvent READER_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.READER_IDLE, false);
+    // WRITE
     public static final IdleStateEvent FIRST_WRITER_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.WRITER_IDLE, true);
     public static final IdleStateEvent WRITER_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.WRITER_IDLE, false);
+    // ALL
     public static final IdleStateEvent FIRST_ALL_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.ALL_IDLE, true);
     public static final IdleStateEvent ALL_IDLE_STATE_EVENT = new IdleStateEvent(IdleState.ALL_IDLE, false);
 
+    /**
+     * 空闲状态类型
+     */
     private final IdleState state;
+
+    /**
+     * 是否首次
+     */
     private final boolean first;
 
     /**

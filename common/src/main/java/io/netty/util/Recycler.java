@@ -33,15 +33,30 @@ import static java.lang.Math.min;
 
 /**
  * Light-weight object pool based on a thread-local stack.
- *
- * @param <T> the type of the pooled object
- *            <p>
- *            基于Thread-Local栈的轻量级对象池
+ * <p>
+ * Recycler用来实现对象池，其中对应堆内存和直接内存的池化实现分别是PooledHeapByteBuf和PooledDirectByteBuf。Recycler主要提供了3个方法：
+ * <p>
+ * get():获取一个对象。
+ * recycle(T, Handle):回收一个对象，T为对象泛型。
+ * newObject(Handle):当没有可用对象时创建对象的实现方法。
+ * <p>
+ * 基于Thread-Local栈的轻量级对象池
+ * <p>
+ * <p>
+ * 结构：
+ * （1）每个Recycler中有创建本Recycler的线程对应的FastThreadLocal，FastThreadLocal中存放着Stack<T>对象
+ * （2）Stack<T>中持有Recycler的引用
+ * （3）Stack<T>中的newHandle()方法负责创建Handler，被创建的Handler持有该Stack<T>的引用
+ * （4）静态变量{@link #DELAYED_RECYCLED}为 FastThreadLocal<Map<Stack<?>, WeakOrderQueue>>，保存了Stack和WeakOrderQueue的映射
+ * 因为{@link #DELAYED_RECYCLED}为静态变量，所以Map<Stack<?>, WeakOrderQueue>永远在使用它的线程的InternalThreadMap的固定index上
  */
 public abstract class Recycler<T> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(Recycler.class);
 
+    /**
+     * 没有操作的 Handle
+     */
     @SuppressWarnings("rawtypes")
     private static final Handle NOOP_HANDLE = new Handle() {
         @Override
@@ -181,6 +196,7 @@ public abstract class Recycler<T> {
         Stack<T> stack = threadLocal.get();
         DefaultHandle<T> handle = stack.pop();
         if (handle == null) {
+            //新创建一个handle
             handle = stack.newHandle();
             handle.value = newObject(handle);
         }
@@ -189,6 +205,10 @@ public abstract class Recycler<T> {
 
     /**
      * @deprecated use {@link Handle#recycle(Object)}.
+     * <p>
+     * Recycler.recycle(T, Handle)方法，用于回收1个对象
+     * <p>
+     * 回收1个对象（DefaultHandle）就是把该对象push到stack中
      */
     @Deprecated
     public final boolean recycle(T o, Handle<T> handle) {
@@ -396,6 +416,7 @@ public abstract class Recycler<T> {
         }
 
         // transfer as many items as we can from this queue to the stack, returning true if any were transferred
+        //将WeakOrderQueue的head Link中的DefaultHandle数组迁移到stack中：
         @SuppressWarnings("rawtypes")
         boolean transfer(Stack<?> dst) {
             Link head = this.head.link;
@@ -523,6 +544,12 @@ public abstract class Recycler<T> {
             return newCapacity;
         }
 
+        /**
+         * 如果该stack的DefaultHandle数组中还有对象可用，那么从该DefaultHandle数组中取出1个可用对象返回，
+         * 如果该DefaultHandle数组没有可用的对象了，那么执行scavenge()方法，将head WeakOrderQueue中的head Link中
+         * 的DefaultHandle数组转移到stack的DefaultHandle数组，
+         *
+         */
         @SuppressWarnings({"unchecked", "rawtypes"})
         DefaultHandle<T> pop() {
             int size = this.size;
@@ -608,17 +635,25 @@ public abstract class Recycler<T> {
 
         void push(DefaultHandle<?> item) {
             Thread currentThread = Thread.currentThread();
+            //threadRef就是创建Handle的线程的弱引用
             if (threadRef.get() == currentThread) {
                 // The current Thread is the thread that belongs to the Stack, we can try to push the object now.
+                //如果该stack就是本线程的stack，那么直接把DefaultHandle放到该stack的数组里
                 pushNow(item);
             } else {
                 // The current Thread is not the one that belongs to the Stack
                 // (or the Thread that belonged to the Stack was collected already), we need to signal that the push
                 // happens later.
+                //如果该stack不是本线程的stack，那么把该DefaultHandle放到该stack的WeakOrderQueue中
                 pushLater(item, currentThread);
             }
         }
 
+        /**
+         * 直接把DefaultHandle放到stack的数组里，如果数组满了那么扩展该数组为当前2倍大小
+         *
+         * @param item
+         */
         private void pushNow(DefaultHandle<?> item) {
             if ((item.recycleId | item.lastRecycledId) != 0) {
                 throw new IllegalStateException("recycled already");
@@ -642,6 +677,11 @@ public abstract class Recycler<T> {
             // we don't want to have a ref to the queue as the value in our weak map
             // so we null it out; to ensure there are no races with restoring it later
             // we impose a memory ordering here (no-op on x86)
+            //
+            // Recycler有1个stack->WeakOrderQueue映射，每个stack会映射到1个WeakOrderQueue，
+            // 这个WeakOrderQueue是该stack关联的其它线程WeakOrderQueue链表的head WeakOrderQueue。
+            //当其它线程回收对象到该stack时会创建1个WeakOrderQueue中并加到stack的WeakOrderQueue链表中。
+            //
             Map<Stack<?>, WeakOrderQueue> delayedRecycled = DELAYED_RECYCLED.get();
             WeakOrderQueue queue = delayedRecycled.get(this);
             if (queue == null) {

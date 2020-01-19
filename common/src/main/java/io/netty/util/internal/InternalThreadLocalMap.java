@@ -44,6 +44,9 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     private static final int STRING_BUILDER_INITIAL_SIZE;
     private static final int STRING_BUILDER_MAX_SIZE;
 
+    /**
+     * 表示没有set，相当于占位符
+     */
     public static final Object UNSET = new Object();
 
     private BitSet cleanerFlags;
@@ -66,14 +69,24 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
     }
 
     public static InternalThreadLocalMap get() {
+        //获取当前线程对象
         Thread thread = Thread.currentThread();
+        //判断当前线程对象是否是Netty自定义的FastThreadLocalThread
         if (thread instanceof FastThreadLocalThread) {
+            //是,则使用fastGet
             return fastGet((FastThreadLocalThread) thread);
         } else {
+            //否,使用slowGet()
             return slowGet();
         }
     }
 
+    /**
+     * 获取当前线程的 InternalThreadLocalMap，如果没有，就创建一个
+     *
+     * @param thread
+     * @return
+     */
     private static InternalThreadLocalMap fastGet(FastThreadLocalThread thread) {
         InternalThreadLocalMap threadLocalMap = thread.threadLocalMap();
         if (threadLocalMap == null) {
@@ -82,6 +95,11 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         return threadLocalMap;
     }
 
+    /**
+     * 首先使用 JDK 的 ThreadLocal 获取一个 Netty 的 InternalThreadLocalMap，如果没有就创建一个，
+     * 并将这个 InternalThreadLocalMap 设置到 JDK 的 ThreadLocal 中，然后返回这个 InternalThreadLocalMap
+     *
+     */
     private static InternalThreadLocalMap slowGet() {
         ThreadLocal<InternalThreadLocalMap> slowThreadLocalMap = UnpaddedInternalThreadLocalMap.slowThreadLocalMap;
         InternalThreadLocalMap ret = slowThreadLocalMap.get();
@@ -105,6 +123,9 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         slowThreadLocalMap.remove();
     }
 
+    /**
+     * 通过一个原子 int 变量自增得到。也就是说，cleanerFlagIndex 变量比 index 大1，这两个变量的作用稍后我们会看到他们如何使用
+     */
     public static int nextVariableIndex() {
         int index = nextIndex.getAndIncrement();
         if (index < 0) {
@@ -126,8 +147,12 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         super(newIndexedVariableTable());
     }
 
+    /**
+     * 创建一个数组用来存放数据，有点类似HashMap中的Hash表
+     */
     private static Object[] newIndexedVariableTable() {
         Object[] array = new Object[32];
+        //用UNSET填充
         Arrays.fill(array, UNSET);
         return array;
     }
@@ -136,42 +161,42 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
         int count = 0;
 
         if (futureListenerStackDepth != 0) {
-            count ++;
+            count++;
         }
         if (localChannelReaderStackDepth != 0) {
-            count ++;
+            count++;
         }
         if (handlerSharableCache != null) {
-            count ++;
+            count++;
         }
         if (counterHashCode != null) {
-            count ++;
+            count++;
         }
         if (random != null) {
-            count ++;
+            count++;
         }
         if (typeParameterMatcherGetCache != null) {
-            count ++;
+            count++;
         }
         if (typeParameterMatcherFindCache != null) {
-            count ++;
+            count++;
         }
         if (stringBuilder != null) {
-            count ++;
+            count++;
         }
         if (charsetEncoderCache != null) {
-            count ++;
+            count++;
         }
         if (charsetDecoderCache != null) {
-            count ++;
+            count++;
         }
         if (arrayList != null) {
-            count ++;
+            count++;
         }
 
-        for (Object o: indexedVariables) {
+        for (Object o : indexedVariables) {
             if (o != UNSET) {
-                count ++;
+                count++;
             }
         }
 
@@ -286,34 +311,44 @@ public final class InternalThreadLocalMap extends UnpaddedInternalThreadLocalMap
 
     public Object indexedVariable(int index) {
         Object[] lookup = indexedVariables;
-        return index < lookup.length? lookup[index] : UNSET;
+        return index < lookup.length ? lookup[index] : UNSET;
     }
 
     /**
      * @return {@code true} if and only if a new thread-local variable has been created
      */
     public boolean setIndexedVariable(int index, Object value) {
+        //拿到那个 32 长度的数组
         Object[] lookup = indexedVariables;
+        //如果 FastThreadLocal 的 index 属性小于数组长度，则将值设定到指定槽位
         if (index < lookup.length) {
             Object oldValue = lookup[index];
             lookup[index] = value;
+            //如果原来的对象也是空对象，则返回 true，否则返回 false。
             return oldValue == UNSET;
         } else {
+            //如果不够呢？调用 expandIndexedVariableTableAndSet(index, value) 方法。进入该方法查看。看方法名称是扩大索引并设置值
             expandIndexedVariableTableAndSet(index, value);
             return true;
         }
     }
 
+    /**
+     * 这段代码的作用就是按原来的容量扩容2倍。并且保证结果是2的幂次方。这里 Netty 的做法和 HashMap 一样，
+     * 按照原来的容量扩容到最近的 2 的幂次方大小，比如原来32，就扩容到64，然后，将原来数组的内容填充到新数组中，
+     * 剩余的填充空对象，然后将新数组赋值给成员变量 indexedVariables。完成了一次扩容
+     *
+     */
     private void expandIndexedVariableTableAndSet(int index, Object value) {
         Object[] oldArray = indexedVariables;
         final int oldCapacity = oldArray.length;
         int newCapacity = index;
-        newCapacity |= newCapacity >>>  1;
-        newCapacity |= newCapacity >>>  2;
-        newCapacity |= newCapacity >>>  4;
-        newCapacity |= newCapacity >>>  8;
+        newCapacity |= newCapacity >>> 1;
+        newCapacity |= newCapacity >>> 2;
+        newCapacity |= newCapacity >>> 4;
+        newCapacity |= newCapacity >>> 8;
         newCapacity |= newCapacity >>> 16;
-        newCapacity ++;
+        newCapacity++;
 
         Object[] newArray = Arrays.copyOf(oldArray, newCapacity);
         Arrays.fill(newArray, oldCapacity, newArray.length, UNSET);

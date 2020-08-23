@@ -67,10 +67,10 @@ public final class EchoServer {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline p = ch.pipeline();
-                            if (sslCtx != null) {
+                           /* if (sslCtx != null) {
                                 p.addLast(sslCtx.newHandler(ch.alloc()));
-                            }
-                            //p.addLast(new LoggingHandler(LogLevel.INFO));
+                            }*/
+                            p.addLast(new LoggingHandler(LogLevel.INFO));
                             p.addLast(serverHandler);
                         }
                     });

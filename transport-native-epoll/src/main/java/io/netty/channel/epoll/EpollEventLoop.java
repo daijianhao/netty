@@ -40,6 +40,8 @@ import static java.lang.Math.min;
 
 /**
  * {@link EventLoop} which uses epoll under the covers. Only works on Linux!
+ * <p>
+ * 利用epoll调用实现的EventLoop
  */
 class EpollEventLoop extends SingleThreadEventLoop {
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(EpollEventLoop.class);
@@ -206,7 +208,7 @@ class EpollEventLoop extends SingleThreadEventLoop {
     protected Queue<Runnable> newTaskQueue(int maxPendingTasks) {
         // This event loop never calls takeTask()
         return maxPendingTasks == Integer.MAX_VALUE ? PlatformDependent.<Runnable>newMpscQueue()
-                                                    : PlatformDependent.<Runnable>newMpscQueue(maxPendingTasks);
+                : PlatformDependent.<Runnable>newMpscQueue(maxPendingTasks);
     }
 
     /**
@@ -261,17 +263,18 @@ class EpollEventLoop extends SingleThreadEventLoop {
 
     @Override
     protected void run() {
-        for (;;) {
+        for (; ; ) {
             try {
                 int strategy = selectStrategy.calculateStrategy(selectNowSupplier, hasTasks());
                 switch (strategy) {
                     case SelectStrategy.CONTINUE:
                         continue;
 
+                        //非阻塞获取事件
                     case SelectStrategy.BUSY_WAIT:
                         strategy = epollBusyWait();
                         break;
-
+                    //阻塞获取事件
                     case SelectStrategy.SELECT:
                         strategy = epollWait(WAKEN_UP_UPDATER.getAndSet(this, 0) == 1);
 
@@ -385,7 +388,7 @@ class EpollEventLoop extends SingleThreadEventLoop {
     }
 
     private void processReady(EpollEventArray events, int ready) {
-        for (int i = 0; i < ready; i ++) {
+        for (int i = 0; i < ready; i++) {
             final int fd = events.fd(i);
             if (fd == eventFd.intValue()) {
                 // consume wakeup event.
